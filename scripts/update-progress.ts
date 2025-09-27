@@ -26,16 +26,16 @@ const progressItems: ProgressItem[] = [
   { id: 'db-turso', title: 'Turso database integration', status: 'completed', iteration: 1 },
   { id: 'mock-data', title: 'Mock data system for testing', status: 'completed', iteration: 1 },
 
-  // Iteration 2 - Asset Discovery & Portfolio Management (Planned)
-  { id: 'asset-search', title: 'Asset search by symbol and company name', status: 'pending', iteration: 2 },
-  { id: 'asset-autocomplete', title: 'Auto-completing dropdown for asset search', status: 'pending', iteration: 2 },
-  { id: 'asset-validation', title: 'Asset validation against available assets', status: 'pending', iteration: 2 },
-  { id: 'portfolio-add', title: 'Add assets to portfolio', status: 'pending', iteration: 2 },
-  { id: 'portfolio-remove', title: 'Remove assets from portfolio', status: 'pending', iteration: 2 },
-  { id: 'portfolio-management', title: 'Portfolio management UI', status: 'pending', iteration: 2 },
-  { id: 'asset-categories', title: 'Asset categories (stocks, crypto, futures)', status: 'pending', iteration: 2 },
-  { id: 'data-finnhub', title: 'Finnhub API integration', status: 'pending', iteration: 2 },
-  { id: 'data-realtime', title: 'Real-time price updates', status: 'pending', iteration: 2 },
+  // Iteration 2 - Asset Discovery & Portfolio Management (Completed)
+  { id: 'asset-search', title: 'Asset search by symbol and company name', status: 'completed', iteration: 2 },
+  { id: 'asset-autocomplete', title: 'Auto-completing dropdown for asset search', status: 'completed', iteration: 2 },
+  { id: 'asset-validation', title: 'Asset validation against available assets', status: 'completed', iteration: 2 },
+  { id: 'portfolio-add', title: 'Add assets to portfolio', status: 'completed', iteration: 2 },
+  { id: 'portfolio-remove', title: 'Remove assets from portfolio', status: 'completed', iteration: 2 },
+  { id: 'portfolio-management', title: 'Portfolio management UI', status: 'completed', iteration: 2 },
+  { id: 'asset-categories', title: 'Asset categories (stocks, crypto, futures)', status: 'completed', iteration: 2 },
+  { id: 'data-finnhub', title: 'Finnhub API integration', status: 'completed', iteration: 2 },
+  { id: 'data-realtime', title: 'Real-time price updates', status: 'completed', iteration: 2 },
 
   // Iteration 3 - Asset Detail Views (Planned)
   { id: 'asset-detail-dialogs', title: 'Asset detail popup dialogs', status: 'pending', iteration: 3 },

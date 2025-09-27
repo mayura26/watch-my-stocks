@@ -1,6 +1,7 @@
 import { DataProvider, SearchResult, QuoteData, Asset } from './types';
 import { FinnhubProvider } from './finnhub';
 import { CoinGeckoProvider } from './coingecko';
+import { YahooFinanceProvider } from './yahoo-finance';
 
 export class DataManager {
   private providers: DataProvider[] = [];
@@ -12,7 +13,7 @@ export class DataManager {
   }
 
   private initializeProviders() {
-    // Initialize Finnhub for stocks and futures
+    // Initialize Finnhub for stocks only
     if (process.env.FINNHUB_API_KEY) {
       this.providers.push(new FinnhubProvider({
         apiKey: process.env.FINNHUB_API_KEY,
@@ -28,9 +29,9 @@ export class DataManager {
     if (process.env.COINGECKO_API_KEY) {
       this.providers.push(new CoinGeckoProvider({
         apiKey: process.env.COINGECKO_API_KEY,
-        baseUrl: 'https://api.coingecko.com/api/v3', // Demo API URL
+        baseUrl: 'https://api.coingecko.com/api/v3',
         rateLimit: {
-          requestsPerMinute: 30, // Demo API limit
+          requestsPerMinute: 30,
           requestsPerDay: 10000
         }
       }));
@@ -40,19 +41,21 @@ export class DataManager {
         apiKey: '',
         baseUrl: 'https://api.coingecko.com/api/v3',
         rateLimit: {
-          requestsPerMinute: 10, // Very limited without API key
+          requestsPerMinute: 10,
           requestsPerDay: 100
         }
       }));
     }
 
-    // Add more providers here as needed
-    // if (process.env.POLYGON_API_KEY) {
-    //   this.providers.push(new PolygonProvider({...}));
-    // }
-    // if (process.env.ALPHA_VANTAGE_API_KEY) {
-    //   this.providers.push(new AlphaVantageProvider({...}));
-    // }
+    // Initialize Yahoo Finance for futures data
+    this.providers.push(new YahooFinanceProvider({
+      apiKey: '', // Yahoo Finance doesn't require API key
+      baseUrl: 'https://query1.finance.yahoo.com',
+      rateLimit: {
+        requestsPerMinute: 100,
+        requestsPerDay: 2000
+      }
+    }));
   }
 
   private ensureInitialized() {
@@ -82,14 +85,25 @@ export class DataManager {
         }
       }
       return [];
+    } else if (assetType === 'future') {
+      // Futures searches → Yahoo Finance only
+      const yahooProvider = this.providers.find(p => p.name === 'YahooFinance');
+      if (yahooProvider) {
+        try {
+          return await yahooProvider.searchAssets(query, assetType);
+        } catch (error) {
+          console.error('Yahoo Finance futures search failed:', error);
+        }
+      }
+      return [];
     } else {
-      // Stock/Futures searches → Finnhub only
+      // Stock searches → Finnhub only
       const finnhubProvider = this.providers.find(p => p.name === 'Finnhub');
       if (finnhubProvider) {
         try {
           return await finnhubProvider.searchAssets(query, assetType);
         } catch (error) {
-          console.error('Finnhub search failed:', error);
+          console.error('Finnhub stock search failed:', error);
         }
       }
       return [];
@@ -106,6 +120,7 @@ export class DataManager {
     
     // Locked-down provider routing based on symbol type
     const isCryptoSymbol = this.isCryptoSymbol(symbol);
+    const isFuturesSymbol = this.isFuturesSymbol(symbol);
     
     if (isCryptoSymbol) {
       // Crypto quotes → CoinGecko only
@@ -118,8 +133,19 @@ export class DataManager {
         }
       }
       return null;
+    } else if (isFuturesSymbol) {
+      // Futures quotes → Yahoo Finance only
+      const yahooProvider = this.providers.find(p => p.name === 'YahooFinance');
+      if (yahooProvider) {
+        try {
+          return await yahooProvider.getAssetQuote(symbol);
+        } catch (error) {
+          console.error(`Yahoo Finance quote failed for ${symbol}:`, error);
+        }
+      }
+      return null;
     } else {
-      // Stock/Futures quotes → Finnhub only
+      // Stock quotes → Finnhub only
       const finnhubProvider = this.providers.find(p => p.name === 'Finnhub');
       if (finnhubProvider) {
         try {
@@ -142,6 +168,7 @@ export class DataManager {
     
     // Locked-down provider routing based on symbol type
     const isCryptoSymbol = this.isCryptoSymbol(symbol);
+    const isFuturesSymbol = this.isFuturesSymbol(symbol);
     
     if (isCryptoSymbol) {
       // Crypto details → CoinGecko only
@@ -154,8 +181,19 @@ export class DataManager {
         }
       }
       return null;
+    } else if (isFuturesSymbol) {
+      // Futures details → Yahoo Finance only
+      const yahooProvider = this.providers.find(p => p.name === 'YahooFinance');
+      if (yahooProvider) {
+        try {
+          return await yahooProvider.getAssetDetails(symbol);
+        } catch (error) {
+          console.error(`Yahoo Finance asset details failed for ${symbol}:`, error);
+        }
+      }
+      return null;
     } else {
-      // Stock/Futures details → Finnhub only
+      // Stock details → Finnhub only
       const finnhubProvider = this.providers.find(p => p.name === 'Finnhub');
       if (finnhubProvider) {
         try {
@@ -208,6 +246,26 @@ export class DataManager {
     
     const upperSymbol = symbol.toUpperCase();
     return cryptoSymbols.includes(upperSymbol);
+  }
+
+  private isFuturesSymbol(symbol: string): boolean {
+    const upperSymbol = symbol.toUpperCase();
+    
+    // Check for Yahoo Finance futures format (=F suffix)
+    if (upperSymbol.endsWith('=F')) {
+      return true;
+    }
+    
+    // Check for standard futures patterns
+    const futurePatterns = [
+      /^[A-Z]{1,2}[FGHJKMNQUVXZ]\d{2}$/, // Standard futures pattern (ES23, NQ23, etc.)
+      /^[A-Z]{1,2}[FGHJKMNQUVXZ]\d{4}$/, // Extended futures pattern
+      /^6[A-Z]=F$/, // Currency futures (6E=F, 6J=F, etc.)
+      /^[A-Z]{2}=F$/, // Other futures (ES=F, NQ=F, etc.)
+      /^[A-Z]{1,2}[FGHJKMNQUVXZ]\d{2}[FGHJKMNQUVXZ]$/ // Double letter futures
+    ];
+    
+    return futurePatterns.some(pattern => pattern.test(upperSymbol));
   }
 
   async getProviderHealth(): Promise<{ name: string; healthy: boolean }[]> {
