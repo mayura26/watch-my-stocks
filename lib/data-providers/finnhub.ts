@@ -1,4 +1,4 @@
-import { DataProvider, SearchResult, QuoteData, Asset, DataProviderConfig } from './types';
+import { DataProvider, SearchResult, QuoteData, Asset, DataProviderConfig, HistoricalData } from './types';
 
 export class FinnhubProvider implements DataProvider {
   name = 'Finnhub';
@@ -158,6 +158,66 @@ export class FinnhubProvider implements DataProvider {
       console.error('Finnhub asset details error:', error);
       return null;
     }
+  }
+
+  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+    try {
+      // For now, return mock data since Finnhub's historical data requires a paid plan
+      // In a real implementation, you would call the appropriate Finnhub endpoint
+      return this.generateMockHistoricalData(symbol, timeframe);
+    } catch (error) {
+      console.error('Finnhub historical data error:', error);
+      return [];
+    }
+  }
+
+  private generateMockHistoricalData(symbol: string, timeframe: '15m' | '1d'): HistoricalData[] {
+    const now = Date.now();
+    
+    // Define time ranges for different timeframes
+    const timeRanges = {
+      '15m': {
+        interval: 15 * 60 * 1000, // 15 minutes
+        dataPoints: 32, // 8 hours (32 * 15min = 8 hours)
+        description: 'Last 8 hours'
+      },
+      '1d': {
+        interval: 24 * 60 * 60 * 1000, // 1 day
+        dataPoints: 30, // 30 days
+        description: 'Last 30 days'
+      }
+    };
+    
+    const config = timeRanges[timeframe];
+    const interval = config.interval;
+    const dataPoints = config.dataPoints;
+    
+    const data: HistoricalData[] = [];
+    let basePrice = 100 + Math.random() * 200; // Random base price between 100-300
+    
+    for (let i = dataPoints; i >= 0; i--) {
+      const timestamp = now - (i * interval);
+      const open = basePrice;
+      const volatility = 0.02; // 2% volatility
+      const change = (Math.random() - 0.5) * volatility;
+      const close = open * (1 + change);
+      const high = Math.max(open, close) * (1 + Math.random() * volatility * 0.5);
+      const low = Math.min(open, close) * (1 - Math.random() * volatility * 0.5);
+      const volume = Math.floor(Math.random() * 1000000) + 100000;
+      
+      data.push({
+        timestamp,
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        close: Number(close.toFixed(2)),
+        volume
+      });
+      
+      basePrice = close; // Next candle starts where this one ended
+    }
+    
+    return data;
   }
 
   async isHealthy(): Promise<boolean> {

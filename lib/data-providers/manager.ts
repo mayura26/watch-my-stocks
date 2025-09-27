@@ -1,7 +1,8 @@
-import { DataProvider, SearchResult, QuoteData, Asset } from './types';
+import { DataProvider, SearchResult, QuoteData, Asset, HistoricalData } from './types';
 import { FinnhubProvider } from './finnhub';
 import { CoinGeckoProvider } from './coingecko';
 import { YahooFinanceProvider } from './yahoo-finance';
+import { PolygonProvider } from './polygon';
 
 export class DataManager {
   private providers: DataProvider[] = [];
@@ -56,6 +57,18 @@ export class DataManager {
         requestsPerDay: 2000
       }
     }));
+
+    // Initialize Polygon.io for stocks data
+    if (process.env.POLYGON_API_KEY) {
+      this.providers.push(new PolygonProvider({
+        apiKey: process.env.POLYGON_API_KEY,
+        baseUrl: 'https://api.polygon.io',
+        rateLimit: {
+          requestsPerMinute: 5, // Free tier limit
+          requestsPerDay: 1000
+        }
+      }));
+    }
   }
 
   private ensureInitialized() {
@@ -234,6 +247,82 @@ export class DataManager {
     return quotes;
   }
 
+  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+    this.ensureInitialized();
+    
+    if (this.providers.length === 0) {
+      console.warn('No data providers available. Please configure API keys in environment variables.');
+      return [];
+    }
+
+    // Route to specific provider based on asset type
+    const assetType = this.determineAssetType(symbol);
+    
+    try {
+      if (assetType === 'future') {
+        // Use Yahoo Finance for futures
+        const yahooProvider = this.providers.find(p => p.name === 'YahooFinance');
+        if (yahooProvider?.getHistoricalData) {
+          return await yahooProvider.getHistoricalData(symbol, timeframe);
+        }
+      } else if (assetType === 'stock') {
+        // Use Polygon.io for stocks
+        const polygonProvider = this.providers.find(p => p.name === 'Polygon.io');
+        if (polygonProvider?.getHistoricalData) {
+          return await polygonProvider.getHistoricalData(symbol, timeframe);
+        }
+      } else if (assetType === 'crypto') {
+        // Use CoinGecko for crypto
+        const coinGeckoProvider = this.providers.find(p => p.name === 'CoinGecko');
+        if (coinGeckoProvider?.getHistoricalData) {
+          return await coinGeckoProvider.getHistoricalData(symbol, timeframe);
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching historical data from ${assetType} provider:`, error);
+      
+      // If it's a rate limit error, throw it immediately to provide better feedback
+      if (error instanceof Error && (
+        error.message.includes('rate limit') || 
+        error.message.includes('429') ||
+        error.message.includes('consent') ||
+        error.message.includes('yahoo')
+      )) {
+        throw error;
+      }
+    }
+
+    // Fallback: try all providers
+    for (const provider of this.providers) {
+      try {
+        if (provider.getHistoricalData) {
+          const data = await provider.getHistoricalData(symbol, timeframe);
+          if (data && data.length > 0) {
+            return data;
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching historical data from ${provider.name}:`, error);
+      }
+    }
+    
+    return [];
+  }
+
+  private determineAssetType(symbol: string): 'stock' | 'crypto' | 'future' {
+    // Check for futures (ends with =F)
+    if (symbol.endsWith('=F')) {
+      return 'future';
+    }
+    
+    // Check for crypto symbols
+    if (this.isCryptoSymbol(symbol)) {
+      return 'crypto';
+    }
+    
+    // Default to stock
+    return 'stock';
+  }
 
   private isCryptoSymbol(symbol: string): boolean {
     // Common crypto symbols (using native CoinGecko symbols)

@@ -1,5 +1,8 @@
-import { DataProvider, SearchResult, QuoteData, Asset, DataProviderConfig } from './types';
+import { DataProvider, SearchResult, QuoteData, Asset, DataProviderConfig, HistoricalData } from './types';
 import yahooFinance from 'yahoo-finance2';
+
+// Suppress Yahoo Finance notices
+yahooFinance.suppressNotices(['ripHistorical', 'yahooSurvey']);
 
 export class YahooFinanceProvider implements DataProvider {
   name = 'YahooFinance';
@@ -227,6 +230,98 @@ export class YahooFinanceProvider implements DataProvider {
     } catch (error) {
       console.error('Yahoo Finance asset details error:', error);
       return null;
+    }
+  }
+
+  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+    try {
+      // Use yahoo-finance2 for real historical data
+      const now = new Date();
+      let period1: Date;
+      let period2: Date = now;
+
+      if (timeframe === '15m') {
+        // For 15m data, check if we're in futures market hours
+        // CME futures: Sunday 6PM ET - Friday 5PM ET (closed Saturday 5PM - Sunday 6PM)
+        const isFutures = symbol.endsWith('=F');
+        const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTimeET = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+        const hourET = currentTimeET.getHours();
+        
+        if (isFutures) {
+          // Check if futures market is closed (Saturday 5PM ET - Sunday 6PM ET)
+          const isMarketClosed = (currentDay === 6 && hourET >= 17) || // Saturday after 5PM ET
+                                (currentDay === 0 && hourET < 18);     // Sunday before 6PM ET
+          
+          if (isMarketClosed) {
+            console.log(`Yahoo Finance: Futures market closed for ${symbol}, using last trading day data`);
+            // Go back to last Friday's close (5PM ET) for 15m data
+            const lastFriday = new Date(now);
+            lastFriday.setDate(now.getDate() - (now.getDay() === 0 ? 2 : now.getDay() + 2)); // Last Friday
+            lastFriday.setHours(17, 0, 0, 0); // 5PM ET
+            period1 = new Date(lastFriday.getTime() - 8 * 60 * 60 * 1000); // 8 hours before close
+            period2 = lastFriday;
+          } else {
+            // Market is open, use normal 8-hour lookback
+            period1 = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+          }
+        } else {
+          // For non-futures, use normal 8-hour lookback
+          period1 = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+        }
+      } else {
+        // For 1d data, use 30-day lookback
+        period1 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      
+      // Use chart() method for all timeframes since historical() is deprecated
+      console.log(`Yahoo Finance: Using chart() method for ${symbol} ${timeframe}`);
+      console.log(`Yahoo Finance: Period1: ${period1.toISOString()}, Period2: ${period2.toISOString()}, Interval: ${timeframe === '15m' ? '15m' : '1d'}`);
+      
+      const result = await yahooFinance.chart(symbol, {
+        period1,
+        period2,
+        interval: timeframe === '15m' ? '15m' : '1d'
+      });
+      console.log(`Yahoo Finance: Chart result:`, result ? 'success' : 'null', result?.quotes?.length || 0, 'quotes');
+
+      if (!result || !result.quotes || result.quotes.length === 0) {
+        console.warn(`No historical data found for ${symbol}`);
+        return [];
+      }
+
+      // Convert yahoo-finance2 chart() format to our HistoricalData format
+      // chart() returns { quotes: [...] } format
+      const quotes = result.quotes || [];
+      if (quotes.length === 0) {
+        console.warn(`No quotes found in chart result for ${symbol}`);
+        return [];
+      }
+      
+      return quotes.map((item: any) => ({
+        timestamp: new Date(item.date).getTime(),
+        open: item.open || 0,
+        high: item.high || 0,
+        low: item.low || 0,
+        close: item.close || 0,
+        volume: item.volume || 0
+      })).sort((a: any, b: any) => a.timestamp - b.timestamp);
+
+    } catch (error) {
+      console.error('Yahoo Finance historical data error:', error);
+      
+      // If it's a consent or rate limit error, throw it for better error handling
+      if (error instanceof Error && (
+        error.message.includes('consent') ||
+        error.message.includes('rate limit') ||
+        error.message.includes('429')
+      )) {
+        throw error;
+      }
+      
+      return [];
     }
   }
 

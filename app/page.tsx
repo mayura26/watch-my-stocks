@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/navigation';
 import { AssetCard } from '@/components/asset-card';
 import { AssetSearch } from '@/components/asset-search';
+import { AssetDetailDialog } from '@/components/asset-detail-dialog';
 import { PortfolioAsset } from '@/types/asset';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,11 @@ import { Plus, Trash2, RefreshCw } from 'lucide-react';
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<PortfolioAsset | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioAsset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showAssetDialog, setShowAssetDialog] = useState(false);
 
   // Load portfolio on mount
   useEffect(() => {
@@ -195,19 +197,22 @@ export default function Home() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {portfolio.map((asset) => (
                   <div key={asset.id} className="relative group">
-                    <AssetCard
-                      asset={{
-                        id: asset.id,
-                        symbol: asset.symbol,
-                        name: asset.name,
-                        currentPrice: asset.currentPrice,
-                        change: asset.change,
-                        changePercent: asset.changePercent,
-                        type: asset.type,
-                        lastUpdated: asset.lastUpdated
-                      }}
-                      onClick={() => setSelectedAsset(asset.symbol)}
-                    />
+                        <AssetCard
+                          asset={{
+                            id: asset.id,
+                            symbol: asset.symbol,
+                            name: asset.name,
+                            currentPrice: asset.currentPrice,
+                            change: asset.change,
+                            changePercent: asset.changePercent,
+                            type: asset.type,
+                            lastUpdated: asset.lastUpdated
+                          }}
+                          onClick={() => {
+                            setSelectedAsset(asset);
+                            setShowAssetDialog(true);
+                          }}
+                        />
                     <Button
                       variant="destructive"
                       size="sm"
@@ -236,15 +241,23 @@ export default function Home() {
               </div>
             )}
 
-        {selectedAsset && (
-          <div className="mt-8 p-4 bg-muted rounded-lg">
-            <p>Selected: {selectedAsset}</p>
-            <p className="text-sm text-muted-foreground">
-              Asset detail dialog will be implemented in the next iteration
-            </p>
+            <AssetDetailDialog
+              isOpen={showAssetDialog}
+              onClose={() => {
+                setShowAssetDialog(false);
+                setSelectedAsset(null);
+              }}
+              asset={selectedAsset ? {
+                symbol: selectedAsset.symbol,
+                name: selectedAsset.name,
+                currentPrice: selectedAsset.currentPrice,
+                change: selectedAsset.change,
+                changePercent: selectedAsset.changePercent,
+                type: selectedAsset.type,
+                lastUpdated: selectedAsset.lastUpdated
+              } : null}
+            />
           </div>
-        )}
         </div>
-    </div>
-  );
-}
+      );
+    }

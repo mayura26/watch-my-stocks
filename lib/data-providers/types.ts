@@ -26,11 +26,21 @@ export interface QuoteData {
   lastUpdated: Date;
 }
 
+export interface HistoricalData {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export interface DataProvider {
   name: string;
   searchAssets(query: string, assetType?: 'stock' | 'crypto' | 'future' | null): Promise<SearchResult[]>;
   getAssetQuote(symbol: string): Promise<QuoteData | null>;
   getAssetDetails(symbol: string): Promise<Asset | null>;
+  getHistoricalData?(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]>;
   isHealthy(): Promise<boolean>;
   getAttribution?(): { text: string; logoUrl: string; linkUrl: string };
 }
