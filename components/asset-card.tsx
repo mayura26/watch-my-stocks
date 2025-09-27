@@ -1,4 +1,4 @@
-import { Asset } from '@/lib/mock-data';
+import { Asset } from '@/types/asset';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -42,11 +42,18 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
           </span>
         </div>
         
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
-          <span className="capitalize truncate">{asset.type}</span>
-          <span className="text-xs truncate ml-2">Details</span>
-        </div>
+            {/* Footer */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
+              <span className="capitalize truncate">{asset.type}</span>
+              <span className="text-xs truncate ml-2">Details</span>
+            </div>
+            
+            {/* Last updated indicator */}
+            {asset.lastUpdated && (
+              <div className="text-xs text-muted-foreground mt-1">
+                Updated {new Date(asset.lastUpdated).toLocaleTimeString()}
+              </div>
+            )}
       </CardContent>
     </Card>
   );

@@ -42,7 +42,7 @@ export const authOptions: NextAuthOptions = {
             name: `${user.first_name} ${user.last_name}`.trim(),
             firstName: user.first_name as string,
             lastName: user.last_name as string,
-            theme: user.theme as string,
+            theme: (user.theme as 'auto' | 'light' | 'dark') || 'auto',
             notificationsEnabled: Boolean(user.notifications_enabled),
           };
         } catch (error) {
@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub!;
         session.user.firstName = token.firstName as string;
         session.user.lastName = token.lastName as string;
-        session.user.theme = token.theme as string;
+        session.user.theme = (token.theme as 'auto' | 'light' | 'dark') || 'auto';
         session.user.notificationsEnabled = token.notificationsEnabled as boolean;
       }
       return session;

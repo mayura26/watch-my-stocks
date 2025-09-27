@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navigation() {
   const { data: session, status } = useSession();
@@ -53,10 +54,12 @@ export function Navigation() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">WatchMyStocks</h1>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
               <a href="/alerts">Alerts</a>
             </Button>
+            
+            <ThemeToggle />
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

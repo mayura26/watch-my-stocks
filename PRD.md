@@ -87,7 +87,7 @@
 - **Login/Register:** Email and password authentication only
 - **Profile Management:** 
   - Edit first name, last name, and email
-  - Light/dark theme preference (saved per user)
+  - Theme preference (auto, light, dark) with system detection
   - Global notification enabled/disabled setting
 - **Account Management:** 
   - Profile dropdown from username in top right corner
@@ -96,7 +96,18 @@
   - Immediate deletion of all associated data
 - **Data Persistence:** Personal watchlists and alert configurations
 
-#### 3.5 Notifications
+#### 3.5 Theme System
+- **Theme Options:**
+  - Auto (follows system preference)
+  - Light theme (forced)
+  - Dark theme (forced)
+- **System Detection:** Automatically detect user's OS theme preference
+- **Theme Persistence:** User preference saved in database
+- **Theme Toggle:** Quick toggle in navigation bar
+- **Smooth Transitions:** Animated theme switching
+- **Component Support:** All UI components support both themes
+
+#### 3.6 Notifications
 - **Web Notifications:** Browser-based alerts when app is open/minimized
 - **PWA Support:** Install prompt only, no background notifications
 - **Alert Delivery:** Real-time notifications for triggered alerts

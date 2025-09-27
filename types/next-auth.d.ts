@@ -8,7 +8,7 @@ declare module 'next-auth' {
       name: string;
       firstName: string;
       lastName: string;
-      theme: string;
+      theme: 'auto' | 'light' | 'dark';
       notificationsEnabled: boolean;
     };
   }
@@ -19,7 +19,7 @@ declare module 'next-auth' {
     name: string;
     firstName: string;
     lastName: string;
-    theme: string;
+    theme: 'auto' | 'light' | 'dark';
     notificationsEnabled: boolean;
   }
 }
@@ -28,7 +28,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     firstName: string;
     lastName: string;
-    theme: string;
+    theme: 'auto' | 'light' | 'dark';
     notificationsEnabled: boolean;
   }
 }

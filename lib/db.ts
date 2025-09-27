@@ -18,7 +18,7 @@ export async function initializeDatabase() {
           first_name TEXT,
           last_name TEXT,
           password TEXT NOT NULL,
-          theme TEXT DEFAULT 'light',
+          theme TEXT DEFAULT 'auto',
           notifications_enabled BOOLEAN DEFAULT TRUE,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
