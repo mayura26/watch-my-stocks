@@ -10,7 +10,7 @@ export async function ensureDatabaseInitialized() {
     await client.execute('SELECT COUNT(*) FROM users LIMIT 1');
     isInitialized = true;
     console.log('Database already initialized');
-  } catch (error) {
+  } catch {
     // Tables don't exist, initialize them
     console.log('Initializing database...');
     

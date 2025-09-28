@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,22 +50,7 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
   const [activeTab, setActiveTab] = useState('overview');
   const [timeframe, setTimeframe] = useState<'15m' | '1d'>('1d');
 
-  useEffect(() => {
-    if (isOpen && asset) {
-      // Reset to overview tab when dialog opens
-      setActiveTab('overview');
-      loadHistoricalData();
-    }
-  }, [isOpen, asset]);
-
-  // Load historical data when timeframe changes (but don't change tab)
-  useEffect(() => {
-    if (isOpen && asset && activeTab === 'charts') {
-      loadHistoricalData();
-    }
-  }, [timeframe]);
-
-  const loadHistoricalData = async () => {
+  const loadHistoricalData = useCallback(async () => {
     if (!asset) return;
     
     setIsLoading(true);
@@ -96,7 +81,22 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [asset, timeframe]);
+
+  useEffect(() => {
+    if (isOpen && asset) {
+      // Reset to overview tab when dialog opens
+      setActiveTab('overview');
+      loadHistoricalData();
+    }
+  }, [isOpen, asset, loadHistoricalData]);
+
+  // Load historical data when timeframe changes (but don't change tab)
+  useEffect(() => {
+    if (isOpen && asset && activeTab === 'charts') {
+      loadHistoricalData();
+    }
+  }, [timeframe, isOpen, asset, activeTab, loadHistoricalData]);
 
   if (!asset) return null;
 

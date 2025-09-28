@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const quotesMap = await dataManager.getMultipleQuotes(symbols);
     
     // Convert Map to array
-    const quotes = Array.from(quotesMap.entries()).map(([symbol, quote]) => ({
+    const quotes = Array.from(quotesMap.entries()).map(([, quote]) => ({
       ...quote
     }));
     

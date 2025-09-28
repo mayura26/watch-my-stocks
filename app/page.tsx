@@ -6,9 +6,15 @@ import { AssetCard } from '@/components/asset-card';
 import { AssetSearch } from '@/components/asset-search';
 import { AssetDetailDialog } from '@/components/asset-detail-dialog';
 import { PortfolioAsset } from '@/types/asset';
+import { QuoteData } from '@/lib/data-providers/types';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
+
+// Type-safe session helper
+function getTypedSession(session: any) {
+  return session as { user: { id: string; email: string; name: string; firstName: string; lastName: string; theme: string; notificationsEnabled: boolean } } | null;
+}
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -20,10 +26,11 @@ export default function Home() {
 
   // Load portfolio on mount
   useEffect(() => {
-    if (session?.user?.id) {
+    const typedSession = getTypedSession(session);
+    if (typedSession?.user?.id) {
       loadPortfolio();
     }
-  }, [session?.user?.id]);
+  }, [session]);
 
   const loadPortfolio = async () => {
     setIsLoading(true);
@@ -40,17 +47,17 @@ export default function Home() {
           const quotesResponse = await fetch(`/api/assets/quotes?symbols=${symbols.join(',')}`);
           if (quotesResponse.ok) {
             const quotesData = await quotesResponse.json();
-            const quotesMap = new Map(quotesData.quotes.map((q: any) => [q.symbol, q]));
+            const quotesMap = new Map<string, QuoteData>(quotesData.quotes.map((q: QuoteData) => [q.symbol, q]));
             
             // Update portfolio with real-time data
             const updatedPortfolio = portfolioData.map((asset: PortfolioAsset) => {
               const quote = quotesMap.get(asset.symbol);
               return {
                 ...asset,
-                currentPrice: quote?.currentPrice || asset.currentPrice,
-                change: quote?.change || 0,
-                changePercent: quote?.changePercent || 0,
-                lastUpdated: quote?.lastUpdated || asset.lastUpdated
+                currentPrice: quote?.currentPrice ?? asset.currentPrice,
+                change: quote?.change ?? 0,
+                changePercent: quote?.changePercent ?? 0,
+                lastUpdated: quote?.lastUpdated ?? asset.lastUpdated
               };
             });
             
@@ -254,7 +261,7 @@ export default function Home() {
                 change: selectedAsset.change,
                 changePercent: selectedAsset.changePercent,
                 type: selectedAsset.type,
-                lastUpdated: selectedAsset.lastUpdated
+                lastUpdated: selectedAsset.lastUpdated || 'Unknown'
               } : null}
             />
           </div>

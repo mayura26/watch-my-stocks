@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 import client from '@/lib/db';
+
+// Type-safe session helper
+function getTypedSession(session: any) {
+  return session as { user: { id: string; email: string; name: string; firstName: string; lastName: string; theme: string; notificationsEnabled: boolean } } | null;
+}
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
+    const typedSession = getTypedSession(session);
     
-    if (!session?.user?.id) {
+    if (!typedSession?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,7 +25,7 @@ export async function GET() {
         WHERE wa.user_id = ?
         ORDER BY wa.added_at DESC
       `,
-      args: [session.user.id]
+      args: [typedSession.user.id]
     });
 
     const portfolio = result.rows.map(row => ({
@@ -45,9 +50,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
+    const typedSession = getTypedSession(session);
     
-    if (!session?.user?.id) {
+    if (!typedSession?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Check if asset already exists in portfolio
     const existingResult = await client.execute({
       sql: 'SELECT id FROM watchlist WHERE user_id = ? AND symbol = ?',
-      args: [session.user.id, symbol.toUpperCase()]
+      args: [typedSession.user.id, symbol.toUpperCase()]
     });
 
     if (existingResult.rows.length > 0) {
@@ -74,7 +80,7 @@ export async function POST(request: NextRequest) {
         INSERT INTO watchlist (id, user_id, symbol, asset_type, added_at)
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       `,
-      args: [id, session.user.id, symbol.toUpperCase(), type || 'stock']
+      args: [id, typedSession.user.id, symbol.toUpperCase(), type || 'stock']
     });
 
     // Update or insert in available_assets table
@@ -101,9 +107,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
+    const typedSession = getTypedSession(session);
     
-    if (!session?.user?.id) {
+    if (!typedSession?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -117,7 +124,7 @@ export async function DELETE(request: NextRequest) {
     // Remove from portfolio
     const result = await client.execute({
       sql: 'DELETE FROM watchlist WHERE user_id = ? AND symbol = ?',
-      args: [session.user.id, symbol.toUpperCase()]
+      args: [typedSession.user.id, symbol.toUpperCase()]
     });
 
     if (result.rowsAffected === 0) {

@@ -226,7 +226,7 @@ export class FinnhubProvider implements DataProvider {
         `${this.config.baseUrl}/quote?symbol=AAPL&token=${this.config.apiKey}`
       );
       return response.ok;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

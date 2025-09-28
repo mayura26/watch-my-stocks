@@ -57,7 +57,11 @@ export class CoinGeckoProvider implements DataProvider {
       );
 
       // Remove coinId from final results (it's only needed internally)
-      return uniqueResults.slice(0, 10).map(({ coinId: _coinId, ...result }: SearchResult & { coinId?: string }) => result);
+      return uniqueResults.slice(0, 10).map((item: SearchResult & { coinId?: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { coinId, ...result } = item;
+        return result;
+      });
         
     } catch (error) {
       console.error('CoinGecko search error:', error);
@@ -172,7 +176,7 @@ export class CoinGeckoProvider implements DataProvider {
         }
       );
       return response.ok;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

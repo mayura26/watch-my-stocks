@@ -1,10 +1,5 @@
 import { DataProvider, SearchResult, QuoteData, Asset, HistoricalData } from './types';
 
-interface PolygonConfig {
-  apiKey: string;
-  baseUrl: string;
-}
-
 interface PolygonProviderConfig {
   apiKey: string;
   baseUrl: string;
@@ -94,7 +89,7 @@ export class PolygonProvider implements DataProvider {
         currentPrice,
         change,
         changePercent,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date()
       };
 
     } catch (error) {
@@ -159,7 +154,45 @@ export class PolygonProvider implements DataProvider {
 
       // Calculate date range
       const now = new Date();
-      const from = new Date(now.getTime() - (timeframe === '15m' ? 8 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000));
+      let from: Date;
+      
+      if (timeframe === '15m') {
+        // For 15m data, pull from the last valid trading point (4pm close) backwards
+        const currentTimeET = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+        const currentDay = currentTimeET.getDay(); // 0 = Sunday, 6 = Saturday
+        const hourET = currentTimeET.getHours();
+        
+        // Find the last valid 4PM ET close (regular market close)
+        const lastValidClose = new Date(currentTimeET);
+        
+        if (currentDay === 0 || currentDay === 6) {
+          // Weekend - use Friday's 4PM ET close
+          lastValidClose.setDate(currentTimeET.getDate() - (currentDay === 0 ? 2 : 1)); // Go back to Friday
+          lastValidClose.setHours(16, 0, 0, 0); // 4PM ET
+        } else {
+          // Weekday - use today's 4PM ET (if past) or previous day's 4PM ET
+          if (hourET >= 16) {
+            // Past 4PM ET today
+            lastValidClose.setHours(16, 0, 0, 0); // 4PM ET today
+          } else {
+            // Before 4PM ET today - use previous trading day's 4PM ET
+            if (currentDay === 1) { // Monday
+              lastValidClose.setDate(currentTimeET.getDate() - 3); // Go back to Friday
+            } else {
+              lastValidClose.setDate(currentTimeET.getDate() - 1); // Previous day
+            }
+            lastValidClose.setHours(16, 0, 0, 0); // 4PM ET
+          }
+        }
+        
+        console.log(`Polygon: Using last valid close (${lastValidClose.toISOString()}) for ${symbol} 15m data`);
+        
+        // Pull 8 hours of 15m data backwards from the last valid close
+        from = new Date(lastValidClose.getTime() - 8 * 60 * 60 * 1000); // 8 hours before close
+      } else {
+        // For 1d data, use 30-day lookback
+        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
       
       const timespan = timeframe === '15m' ? 'minute' : 'day';
       const multiplier = timeframe === '15m' ? 15 : 1;
@@ -214,7 +247,7 @@ export class PolygonProvider implements DataProvider {
       // Test with a simple stock quote
       const testQuote = await this.getAssetQuote('AAPL');
       return testQuote !== null;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '@/lib/theme-provider';
 import {
   Chart as ChartJS,
@@ -56,7 +56,7 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
   const currentTheme = resolvedTheme || theme || 'light';
 
   // Theme-aware colors
-  const getThemeColors = () => {
+  const getThemeColors = useCallback(() => {
     const isDark = currentTheme === 'dark';
     
     return {
@@ -79,7 +79,7 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
         border: isDark ? '#f87171' : '#b91c1c', // red-400 for dark, red-700 for light
       }
     };
-  };
+  }, [currentTheme]);
 
   useEffect(() => {
     if (!canvasRef.current || !data || data.length === 0) return;
@@ -157,15 +157,17 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
       scales: {
         x: {
           type: 'time',
+          time: {
             unit: timeframe === '15m' ? 'minute' : 'day',
             displayFormats: {
               minute: 'HH:mm',
               day: 'MMM dd',
             },
-            // Show appropriate time range
-            min: timeframe === '15m' 
-              ? new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() // 8 hours ago
-              : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+          },
+          // Show appropriate time range
+          min: timeframe === '15m' 
+            ? new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() // 8 hours ago
+            : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
           grid: {
             color: colors.gridColor,
           },
@@ -224,7 +226,7 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
         chartRef.current.destroy();
       }
     };
-  }, [data, timeframe, currentTheme]);
+  }, [data, timeframe, currentTheme, getThemeColors]);
 
   if (!data || data.length === 0) {
     return (

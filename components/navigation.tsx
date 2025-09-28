@@ -1,7 +1,6 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,7 +12,6 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navigation() {
   const { data: session, status } = useSession();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   if (status === 'loading') {
     return (
@@ -65,15 +63,15 @@ export function Navigation() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
-                    {session.user.firstName?.[0]}{session.user.lastName?.[0]}
+                    {(session.user as any)?.firstName?.[0]}{(session.user as any)?.lastName?.[0]}
                   </div>
                   <span className="hidden sm:inline">
-                    {session.user.firstName} {session.user.lastName}
+                    {(session.user as any)?.firstName} {(session.user as any)?.lastName}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
+                <DropdownMenuItem onClick={() => {}}>
                   Profile & Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => signOut()}>
