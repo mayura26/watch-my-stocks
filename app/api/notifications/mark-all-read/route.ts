@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import client from '@/lib/db';
 
 // PUT /api/notifications/mark-all-read - Mark all notifications as read
-export async function PUT(request: NextRequest) {
+export async function PUT() {
   try {
     const session = await getServerSession(authOptions);
     

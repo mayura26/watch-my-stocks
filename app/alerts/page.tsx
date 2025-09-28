@@ -18,7 +18,6 @@ import {
   TrendingDown, 
   DollarSign,
   Search,
-  Filter,
   MoreVertical
 } from 'lucide-react';
 import {

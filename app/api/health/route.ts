@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import client from '@/lib/db';
 
 // GET /api/health - Health check endpoint for Coolify
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Check database connection
     await client.execute('SELECT 1');

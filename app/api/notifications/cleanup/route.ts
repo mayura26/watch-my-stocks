@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import client from '@/lib/db';
 
 // DELETE /api/notifications/cleanup - Clean up notifications older than 30 days
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const session = await getServerSession(authOptions);
     

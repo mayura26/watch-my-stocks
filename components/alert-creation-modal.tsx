@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, DollarSign, TrendingUp, TrendingDown, X } from 'lucide-react';
+import { AlertCircle, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 interface AlertCreationModalProps {

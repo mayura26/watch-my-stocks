@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import client from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import { DataManager } from '@/lib/data-providers/manager';
+// import { DataManager } from '@/lib/data-providers/manager'; // TODO: Use this for future data provider logic
 
 // POST /api/alerts/check - Check all active alerts and trigger notifications
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // This endpoint should be called by a cron job or background service
     // For now, we'll make it accessible but in production you'd want to secure it
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const dataManager = new DataManager();
+    // const dataManager = new DataManager(); // TODO: Use this for future data provider logic
     let checkedCount = 0;
     let triggeredCount = 0;
 

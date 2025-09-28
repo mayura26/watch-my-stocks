@@ -13,7 +13,6 @@ import {
   BarChart3, 
   X,
   AlertCircle,
-  Plus,
   RefreshCw,
   Bell
 } from 'lucide-react';
