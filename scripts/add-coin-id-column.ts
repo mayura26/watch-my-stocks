@@ -10,7 +10,7 @@ async function addCoinIdColumn() {
     `);
     console.log('✅ Added coin_id column to watchlist table');
   } catch (error) {
-    if (error.message.includes('duplicate column name')) {
+    if (error instanceof Error && error.message.includes('duplicate column name')) {
       console.log('✅ coin_id column already exists in watchlist table');
     } else {
       console.error('❌ Error adding coin_id to watchlist:', error);
@@ -24,7 +24,7 @@ async function addCoinIdColumn() {
     `);
     console.log('✅ Added coin_id column to available_assets table');
   } catch (error) {
-    if (error.message.includes('duplicate column name')) {
+    if (error instanceof Error && error.message.includes('duplicate column name')) {
       console.log('✅ coin_id column already exists in available_assets table');
     } else {
       console.error('❌ Error adding coin_id to available_assets:', error);

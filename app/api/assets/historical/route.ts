@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       if (result.rows.length > 0) {
         const row = result.rows[0];
         if (row.asset_type === 'crypto' && row.coin_id) {
-          coinId = row.coin_id;
+          coinId = row.coin_id as string;
           console.log(`API: Found coin_id for ${symbol}: ${coinId}`);
         }
       }

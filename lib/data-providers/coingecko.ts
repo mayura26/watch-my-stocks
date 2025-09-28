@@ -53,7 +53,7 @@ export class CoinGeckoProvider implements DataProvider {
         coinId: item.coinId // Include coinId for crypto assets
       }));
 
-    } catch (err) {
+    } catch {
       return [];
     }
   }
@@ -207,7 +207,7 @@ export class CoinGeckoProvider implements DataProvider {
 
       return historicalData;
 
-    } catch (err) {
+    } catch {
       return [];
     }
   }
@@ -217,7 +217,7 @@ export class CoinGeckoProvider implements DataProvider {
       // Use the ping endpoint to check if the service is available
       await coingeckoClient.ping.get();
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   }
@@ -306,7 +306,7 @@ export class CoinGeckoProvider implements DataProvider {
         this.coinIdCache.set(upperSymbol, coinId);
         return coinId;
       }
-    } catch (error) {
+    } catch {
       // Search failed, continue to return null
     }
     
