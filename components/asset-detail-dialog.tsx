@@ -14,10 +14,12 @@ import {
   X,
   AlertCircle,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import { CandlestickChart } from './candlestick-chart';
 import { ChartSkeleton } from './chart-skeleton';
+import { AlertCreationModal } from './alert-creation-modal';
 import { useDetailedRelativeTime } from '@/lib/hooks/use-relative-time';
 
 interface AssetDetailDialogProps {
@@ -43,12 +45,30 @@ interface HistoricalData {
   volume: number;
 }
 
+interface Alert {
+  id: string;
+  symbol: string;
+  asset_name: string;
+  asset_type: string;
+  alert_type: string;
+  threshold_value: number;
+  is_active: boolean;
+  is_enabled: boolean;
+  last_triggered: string | null;
+  trigger_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogProps) {
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showAlertModal, setShowAlertModal] = useState(false);
   const [timeframe, setTimeframe] = useState<'15m' | '1d'>('1d');
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
   const relativeTime = useDetailedRelativeTime(asset?.lastUpdated);
 
   const loadHistoricalData = useCallback(async () => {
@@ -84,12 +104,37 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
     }
   }, [asset, timeframe]);
 
+  const loadAlerts = useCallback(async () => {
+    if (!asset) return;
+    
+    setAlertsLoading(true);
+    try {
+      const response = await fetch('/api/alerts');
+      if (response.ok) {
+        const data = await response.json();
+        // Filter alerts for this specific asset
+        const assetAlerts = data.alerts?.filter((alert: Alert) => alert.symbol === asset.symbol) || [];
+        setAlerts(assetAlerts);
+      }
+    } catch (error) {
+      console.error('Error loading alerts:', error);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, [asset]);
+
   useEffect(() => {
     if (isOpen && asset) {
       // Reset to overview tab when dialog opens (but not when timeframe changes)
       setActiveTab('overview');
     }
   }, [isOpen, asset]);
+
+  useEffect(() => {
+    if (isOpen && asset && activeTab === 'alerts') {
+      loadAlerts();
+    }
+  }, [isOpen, asset, activeTab, loadAlerts]);
 
   // Load historical data when dialog opens or timeframe changes
   useEffect(() => {
@@ -313,25 +358,129 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
           <TabsContent value="alerts" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Price Alerts</h3>
-              <Button className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
+              <Button 
+                onClick={() => setShowAlertModal(true)}
+                className="flex items-center gap-2"
+              >
+                <Bell className="w-4 h-4" />
                 Create Alert
               </Button>
             </div>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <div className="text-center">
-                    <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Alert system will be implemented in the next iteration</p>
+            {alertsLoading ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Loading alerts...</span>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : alerts.length === 0 ? (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-center">
+                    <Bell className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <h4 className="font-semibold mb-2">No alerts for {asset?.symbol}</h4>
+                    <p className="text-muted-foreground mb-4">
+                      Get notified when {asset?.symbol} reaches your target price or moves by a certain percentage.
+                    </p>
+                    <Button 
+                      onClick={() => setShowAlertModal(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Bell className="w-4 h-4" />
+                      Create Your First Alert
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {alerts.map((alert) => (
+                  <Card key={alert.id} className={!alert.is_enabled ? 'opacity-60' : ''}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={alert.alert_type === 'price_above' ? 'default' : 'secondary'}>
+                              {alert.alert_type === 'price_above' ? 'Above' : 'Below'}
+                            </Badge>
+                            <span className="font-mono text-lg font-semibold">
+                              ${alert.threshold_value.toFixed(2)}
+                            </span>
+                            {!alert.is_enabled && (
+                              <Badge variant="outline" className="text-xs">
+                                Disabled
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {alert.alert_type === 'price_above' 
+                              ? `Alert when ${asset?.symbol} goes above $${alert.threshold_value.toFixed(2)}`
+                              : `Alert when ${asset?.symbol} goes below $${alert.threshold_value.toFixed(2)}`
+                            }
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Created {new Date(alert.created_at).toLocaleDateString()}
+                            {alert.trigger_count > 0 && (
+                              <span className="ml-2 text-orange-600">
+                                • Triggered {alert.trigger_count} time{alert.trigger_count > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // TODO: Implement edit functionality
+                              console.log('Edit alert:', alert.id);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/alerts/${alert.id}`, {
+                                  method: 'DELETE',
+                                });
+                                if (response.ok) {
+                                  loadAlerts(); // Reload alerts
+                                }
+                              } catch (error) {
+                                console.error('Error deleting alert:', error);
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Alert Creation Modal */}
+      <AlertCreationModal
+        isOpen={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        symbol={asset?.symbol || ''}
+        currentPrice={asset?.currentPrice || 0}
+        onAlertCreated={() => {
+          loadAlerts(); // Refresh alerts list
+          setShowAlertModal(false);
+        }}
+      />
     </Dialog>
   );
 }

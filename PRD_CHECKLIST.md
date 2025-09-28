@@ -20,11 +20,11 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 - [x] **Asset categories (stocks, crypto, futures)** - ✅ Complete
 
 ### 3. Asset Detail Views
-- [ ] **Popup dialogs for asset details** - ⏳ Pending
-- [ ] **15-minute candlestick charts** - ⏳ Pending
-- [ ] **1-day candlestick charts** - ⏳ Pending
-- [ ] **Chart data integration** - ⏳ Pending
-- [ ] **Asset information display** - ⏳ Pending
+- [x] **Popup dialogs for asset details** - ✅ Complete
+- [x] **15-minute candlestick charts** - ✅ Complete
+- [x] **1-day candlestick charts** - ✅ Complete
+- [x] **Chart data integration** - ✅ Complete
+- [x] **Asset information display** - ✅ Complete
 
 ### 4. Alert System
 - [ ] **Price threshold alerts (above/below)** - ⏳ Pending
@@ -84,8 +84,8 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 
 ### 11. Data Integration
 - [x] **Finnhub API integration** - ✅ Complete
-- [ ] **Polygon.io API integration (backup)** - ⏳ Pending
-- [ ] **yahoo-finance2 integration (backup)** - ⏳ Pending
+- [x] **Polygon.io API integration (backup)** - ✅ Complete
+- [x] **yahoo-finance2 integration (backup)** - ✅ Complete
 - [x] **Modular data layer** - ✅ Complete
 - [x] **Rate limiting** - ✅ Complete
 - [x] **Data caching** - ✅ Complete
@@ -109,7 +109,7 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 
 ## 📊 **PROGRESS SUMMARY**
 
-### ✅ **COMPLETED (35%)**
+### ✅ **COMPLETED (50%)**
 - Authentication system
 - Basic layout and navigation
 - Theme system
@@ -118,12 +118,15 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 - Real-time data integration
 - Finnhub API integration
 - Asset type detection system
+- Asset detail views with charts
+- Multi-provider data integration (Finnhub, Polygon.io, Yahoo Finance)
+- Chart.js financial charts with theme support
+- Historical data API with market hours logic
 
 ### 🚧 **IN PROGRESS (0%)**
 - None currently
 
-### ⏳ **PENDING (65%)**
-- Asset detail views
+### ⏳ **PENDING (50%)**
 - Alert system
 - Notification system
 - PWA features
@@ -134,11 +137,13 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 
 ## 🎯 **NEXT ITERATION FOCUS**
 
-**Iteration 3: Asset Detail Views**
-1. Asset detail popup dialogs
-2. Chart integration (15M and 1D candles)
-3. Enhanced data display
-4. Price history visualization
+**Iteration 4: Alert System**
+1. Price threshold alerts (above/below)
+2. Alert creation and management interface
+3. Alert enable/disable functionality
+4. Alert deletion and editing
+5. 500 alerts per user limit implementation
+6. Dead bounce mechanism (15min cooldown)
 
 ---
 
