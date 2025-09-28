@@ -254,32 +254,44 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                         {formatPercent(asset.changePercent)}
                       </span>
                     </div>
-                    {historicalData.length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Volume</span>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Volume</span>
+                      {isLoading ? (
+                        <div className="h-3 w-8 bg-muted animate-pulse rounded"></div>
+                      ) : historicalData.length > 0 ? (
                         <span>{formatVolume(historicalData[historicalData.length - 1]?.volume || 0)}</span>
-                      </div>
-                    )}
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             {/* Recent Performance - Compact */}
-            {historicalData.length > 0 && (
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Session Range:</span>
+            <Card className="py-1.5 px-2">
+              <CardContent className="py-1.5 px-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Session Range:</span>
+                  {isLoading ? (
+                    <div className="flex gap-6 text-xs">
+                      <div className="h-3 w-12 bg-muted animate-pulse rounded"></div>
+                      <div className="h-3 w-12 bg-muted animate-pulse rounded"></div>
+                      <div className="h-3 w-12 bg-muted animate-pulse rounded"></div>
+                    </div>
+                  ) : historicalData.length > 0 ? (
                     <div className="flex gap-6 text-xs">
                       <span>Open: {formatPrice(historicalData[0]?.open || 0)}</span>
                       <span>High: {formatPrice(Math.max(...historicalData.map(d => d.high)))}</span>
                       <span>Low: {formatPrice(Math.min(...historicalData.map(d => d.low)))}</span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  ) : (
+                    <span className="text-muted-foreground text-xs">No data available</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="charts" className="space-y-4">
