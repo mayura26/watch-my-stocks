@@ -7,6 +7,11 @@ const client = createClient({
 
 export default client;
 
+// Export function to get client instance
+export function getClient() {
+  return client;
+}
+
 // Database initialization function
 export async function initializeDatabase() {
   try {

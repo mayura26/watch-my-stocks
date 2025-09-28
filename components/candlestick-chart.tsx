@@ -165,12 +165,10 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
             },
           },
           // Show appropriate time range based on actual data
-          min: timeframe === '15m' 
-            ? chartData.length > 0 ? new Date(Math.min(...chartData.map(d => d.x))).toISOString() : new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
-            : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
-          max: timeframe === '15m' 
-            ? chartData.length > 0 ? new Date(Math.max(...chartData.map(d => d.x))).toISOString() : undefined
-            : undefined,
+          min: chartData.length > 0 ? new Date(Math.min(...chartData.map(d => d.x))).toISOString() : 
+            timeframe === '15m' ? new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() : 
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          max: chartData.length > 0 ? new Date(Math.max(...chartData.map(d => d.x))).toISOString() : undefined,
           grid: {
             color: colors.gridColor,
           },
