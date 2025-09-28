@@ -85,18 +85,17 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
 
   useEffect(() => {
     if (isOpen && asset) {
-      // Reset to overview tab when dialog opens
+      // Reset to overview tab when dialog opens (but not when timeframe changes)
       setActiveTab('overview');
-      loadHistoricalData();
     }
-  }, [isOpen, asset, loadHistoricalData]);
+  }, [isOpen, asset]);
 
-  // Load historical data when timeframe changes (but don't change tab)
+  // Load historical data when dialog opens or timeframe changes
   useEffect(() => {
-    if (isOpen && asset && activeTab === 'charts') {
+    if (isOpen && asset) {
       loadHistoricalData();
     }
-  }, [timeframe, isOpen, asset, activeTab, loadHistoricalData]);
+  }, [isOpen, asset, timeframe, loadHistoricalData]);
 
   if (!asset) return null;
 
@@ -126,8 +125,8 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-2xl">{getAssetTypeIcon(asset.type)}</div>
@@ -220,38 +219,16 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
               </Card>
             </div>
 
-            {/* Recent Performance */}
+            {/* Recent Performance - Compact */}
             {historicalData.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Recent Performance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{formatPrice(asset.currentPrice)}</div>
-                      <div className="text-sm text-muted-foreground">Current</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">
-                        {formatPrice(historicalData[0]?.open || 0)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Open</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">
-                        {formatPrice(Math.max(...historicalData.map(d => d.high)))}
-                      </div>
-                      <div className="text-sm text-muted-foreground">High</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">
-                        {formatPrice(Math.min(...historicalData.map(d => d.low)))}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Low</div>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Session Range:</span>
+                    <div className="flex gap-6 text-xs">
+                      <span>Open: {formatPrice(historicalData[0]?.open || 0)}</span>
+                      <span>High: {formatPrice(Math.max(...historicalData.map(d => d.high)))}</span>
+                      <span>Low: {formatPrice(Math.min(...historicalData.map(d => d.low)))}</span>
                     </div>
                   </div>
                 </CardContent>

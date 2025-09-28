@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import client from '@/lib/db';
 
 // Type-safe session helper
@@ -9,7 +10,7 @@ function getTypedSession(session: any) {
 
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     const typedSession = getTypedSession(session);
     
     if (!typedSession?.user?.id) {
@@ -50,7 +51,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     const typedSession = getTypedSession(session);
     
     if (!typedSession?.user?.id) {
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     const typedSession = getTypedSession(session);
     
     if (!typedSession?.user?.id) {
