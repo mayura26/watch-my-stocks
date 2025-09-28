@@ -20,7 +20,7 @@ export async function GET() {
     // Get user's portfolio
     const result = await client.execute({
       sql: `
-        SELECT wa.*, aa.name, aa.asset_type, aa.current_price, aa.last_updated
+        SELECT wa.*, aa.name, aa.asset_type, aa.current_price, aa.last_updated, aa.coin_id
         FROM watchlist wa
         LEFT JOIN available_assets aa ON wa.symbol = aa.symbol
         WHERE wa.user_id = ?
@@ -36,7 +36,8 @@ export async function GET() {
       type: row.asset_type || 'stock',
       currentPrice: row.current_price || 0,
       addedAt: row.added_at,
-      lastUpdated: row.last_updated
+      lastUpdated: row.last_updated,
+      coinId: row.coin_id // Include coin_id for crypto assets
     }));
 
     return NextResponse.json({ portfolio });
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { symbol, name, type } = await request.json();
+    const { symbol, name, type, coinId } = await request.json();
 
     if (!symbol) {
       return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
@@ -76,21 +77,24 @@ export async function POST(request: NextRequest) {
 
     // Add to portfolio
     const id = crypto.randomUUID();
+    const assetType = type || 'stock';
+    const isCrypto = assetType === 'crypto';
+    
     await client.execute({
       sql: `
-        INSERT INTO watchlist (id, user_id, symbol, asset_type, added_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO watchlist (id, user_id, symbol, asset_type, coin_id, added_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       `,
-      args: [id, typedSession.user.id, symbol.toUpperCase(), type || 'stock']
+      args: [id, typedSession.user.id, symbol.toUpperCase(), assetType, isCrypto ? coinId : null]
     });
 
     // Update or insert in available_assets table
     await client.execute({
       sql: `
-        INSERT OR REPLACE INTO available_assets (id, symbol, name, asset_type, is_active, last_updated, created_at)
-        VALUES (?, ?, ?, ?, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT OR REPLACE INTO available_assets (id, symbol, name, asset_type, coin_id, is_active, last_updated, created_at)
+        VALUES (?, ?, ?, ?, ?, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `,
-      args: [crypto.randomUUID(), symbol.toUpperCase(), name || symbol, type || 'stock']
+      args: [crypto.randomUUID(), symbol.toUpperCase(), name || symbol, assetType, isCrypto ? coinId : null]
     });
 
     return NextResponse.json({ 

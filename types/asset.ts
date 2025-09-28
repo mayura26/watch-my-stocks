@@ -11,4 +11,5 @@ export interface Asset {
 
 export interface PortfolioAsset extends Asset {
   addedAt: string;
+  coinId?: string; // CoinGecko coin ID for crypto assets
 }

@@ -78,14 +78,14 @@ export default function Home() {
     }
   };
 
-  const handleAddAsset = async (symbol: string, name: string, type: string) => {
+  const handleAddAsset = async (symbol: string, name: string, type: string, coinId?: string) => {
     try {
       const response = await fetch('/api/portfolio', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ symbol, name, type }),
+        body: JSON.stringify({ symbol, name, type, coinId }),
       });
 
       const data = await response.json();

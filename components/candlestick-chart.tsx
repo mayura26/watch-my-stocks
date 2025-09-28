@@ -158,10 +158,10 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
         x: {
           type: 'time',
           time: {
-            unit: timeframe === '15m' ? 'minute' : 'day',
+            unit: timeframe === '15m' ? 'minute' : 'week',
             displayFormats: {
               minute: 'HH:mm',
-              day: 'MMM dd',
+              week: 'MMM dd',
             },
           },
           // Show appropriate time range based on actual data
@@ -174,7 +174,7 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
           },
           ticks: {
             color: colors.tickColor,
-            maxTicksLimit: timeframe === '15m' ? 6 : 6, // Fewer ticks for 8-hour range
+            maxTicksLimit: timeframe === '15m' ? 8 : 5, // Show weekly labels for 1D
           },
         },
         y: {

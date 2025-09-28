@@ -255,7 +255,7 @@ export class DataManager {
     }
   }
 
-  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+  async getHistoricalData(symbol: string, timeframe: '15m' | '1d', coinId?: string): Promise<HistoricalData[]> {
     this.ensureInitialized();
     
     if (this.providers.length === 0) {
@@ -272,7 +272,7 @@ export class DataManager {
       if (coinGeckoProvider) {
         try {
           if (coinGeckoProvider.getHistoricalData) {
-            return await coinGeckoProvider.getHistoricalData(symbol, timeframe);
+            return await coinGeckoProvider.getHistoricalData(symbol, timeframe, coinId);
           }
         } catch (error) {
           console.error(`CoinGecko historical data failed for ${symbol}:`, error);

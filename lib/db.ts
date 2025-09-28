@@ -37,6 +37,7 @@ export async function initializeDatabase() {
         user_id TEXT NOT NULL,
         symbol TEXT NOT NULL,
         asset_type TEXT NOT NULL,
+        coin_id TEXT, -- CoinGecko coin ID for crypto assets
         added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
@@ -82,6 +83,7 @@ export async function initializeDatabase() {
         symbol TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
         asset_type TEXT NOT NULL,
+        coin_id TEXT, -- CoinGecko coin ID for crypto assets
         current_price REAL,
         is_active BOOLEAN DEFAULT TRUE,
         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,

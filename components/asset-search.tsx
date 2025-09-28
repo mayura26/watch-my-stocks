@@ -12,10 +12,11 @@ interface SearchResult {
   type: 'stock' | 'crypto' | 'future';
   currency?: string;
   exchange?: string;
+  coinId?: string; // CoinGecko coin ID for crypto assets
 }
 
 interface AssetSearchProps {
-  onAddAsset: (symbol: string, name: string, type: string) => void;
+  onAddAsset: (symbol: string, name: string, type: string, coinId?: string) => void;
 }
 
 export function AssetSearch({ onAddAsset }: AssetSearchProps) {
@@ -130,7 +131,7 @@ export function AssetSearch({ onAddAsset }: AssetSearchProps) {
   };
 
   const handleSelectResult = (result: SearchResult) => {
-    onAddAsset(result.symbol, result.name, result.type);
+    onAddAsset(result.symbol, result.name, result.type, result.coinId);
     setQuery('');
     setResults([]);
     setIsOpen(false);

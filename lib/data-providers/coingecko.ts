@@ -43,12 +43,15 @@ export class CoinGeckoProvider implements DataProvider {
         array.findIndex(r => r.symbol === result.symbol && r.name === result.name) === index
       );
 
-      // Remove coinId from final results (it's only needed internally)
-      return uniqueResults.slice(0, 10).map((item: SearchResult & { coinId?: string }) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { coinId, ...result } = item;
-        return result;
-      });
+      // Include coinId in final results for crypto assets
+      return uniqueResults.slice(0, 10).map((item: SearchResult & { coinId?: string }) => ({
+        symbol: item.symbol,
+        name: item.name,
+        type: item.type,
+        currency: item.currency,
+        exchange: item.exchange,
+        coinId: item.coinId // Include coinId for crypto assets
+      }));
 
     } catch (err) {
       console.error('CoinGecko search error:', err);
@@ -87,7 +90,7 @@ export class CoinGeckoProvider implements DataProvider {
         currentPrice,
         change,
         changePercent,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date()
       };
 
     } catch (err) {
@@ -132,14 +135,13 @@ export class CoinGeckoProvider implements DataProvider {
       const change = (currentPrice * change24h) / 100;
 
       return {
-        id: coinId,
         symbol: symbol.toUpperCase(),
         name: symbol, // We don't have the full name from simple price endpoint
         currentPrice,
         change,
         changePercent: change24h,
         type: 'crypto',
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date()
       };
 
     } catch (err) {
@@ -148,96 +150,90 @@ export class CoinGeckoProvider implements DataProvider {
     }
   }
 
-  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+  async getHistoricalData(symbol: string, timeframe: '15m' | '1d', coinId?: string): Promise<HistoricalData[]> {
     try {
-      // Get coin ID for the symbol
-      const coinId = await this.getCoinId(symbol);
+      // coinId should always be provided for crypto assets
       if (!coinId) {
-        console.warn(`CoinGecko: No coin ID found for ${symbol}`);
+        console.warn(`CoinGecko: No coin ID provided for ${symbol}. This should not happen for crypto assets.`);
         return [];
       }
 
       // Calculate date range based on timeframe
       const days = timeframe === '15m' ? 1 : 30;
 
-      const data = await coingeckoClient.coins.marketChart.get({
-        id: coinId,
+      console.log(`CoinGecko: Getting historical data for ${symbol}, coinId: ${coinId}, timeframe: ${timeframe}, days: ${days}`);
+      
+      // Use the OHLC endpoint which provides proper OHLC data
+      // Correct SDK method: coingeckoClient.coins.ohlc.get(id, params)
+      const data = await coingeckoClient.coins.ohlc.get(coinId, {
         vs_currency: 'usd',
-        days: days,
+        days: days.toString() as '1' | '7' | '14' | '30' | '90' | '180' | '365' | 'max',
       });
 
-      if (!data.prices || !Array.isArray(data.prices)) {
+      if (!data || !Array.isArray(data)) {
         console.warn(`CoinGecko: No historical data for ${symbol}`);
         return [];
       }
 
-      // Convert CoinGecko format to our HistoricalData format
+      // Convert OHLC format to our HistoricalData format
+      // OHLC returns: [timestamp, open, high, low, close]
       const historicalData: HistoricalData[] = [];
-      const prices = data.prices || [];
-      const volumes = data.total_volumes || [];
 
-      for (let i = 0; i < prices.length; i++) {
-        const priceData = prices[i];
-        const volumeData = volumes[i] || [priceData[0], 0];
+      console.log(`CoinGecko: Processing ${data.length} OHLC data points`);
+
+      for (let i = 0; i < data.length; i++) {
+        const ohlcData = data[i];
         
-        if (!priceData || priceData.length < 2) continue;
+        if (!ohlcData || ohlcData.length < 5) continue;
 
-        const timestamp = priceData[0];
-        const close = priceData[1];
-        const volume = volumeData[1] || 0;
+        let timestamp = ohlcData[0];
+        const open = ohlcData[1];
+        const high = ohlcData[2];
+        const low = ohlcData[3];
+        const close = ohlcData[4];
 
-        // For daily data, align timestamps to midnight UTC for smooth chart display
-        const date = new Date(timestamp);
-        const alignedTimestamp = timeframe === '1d' 
-          ? new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0).getTime()
-          : timestamp;
+        // Check if timestamp is in seconds instead of milliseconds
+        // If timestamp is less than year 2000 in milliseconds, it's likely in seconds
+        if (timestamp < 946684800000) { // Jan 1, 2000 in milliseconds
+          timestamp = timestamp * 1000; // Convert seconds to milliseconds
+        }
 
-        // Generate realistic OHLC data from close price
-        const volatility = close * 0.02; // 2% volatility
-        const randomFactor1 = (Math.random() - 0.5) * volatility;
-        const randomFactor2 = (Math.random() - 0.5) * volatility;
-        
-        const open = close + randomFactor1;
-        const high = Math.max(open, close) + Math.abs(randomFactor2) * 0.5;
-        const low = Math.min(open, close) - Math.abs(randomFactor2) * 0.5;
+        // Log first few data points for debugging
+        if (i < 3) {
+          const date = new Date(timestamp);
+          const currentTime = Date.now();
+          console.log(`Data point ${i}:`, { 
+            originalTimestamp: ohlcData[0],
+            convertedTimestamp: timestamp, 
+            date: date.toISOString(),
+            currentTime: new Date(currentTime).toISOString(),
+            isFuture: timestamp > currentTime,
+            open, high, low, close 
+          });
+        }
 
+        // Use the converted timestamp
         historicalData.push({
-          timestamp: alignedTimestamp,
-          open: Math.max(0.01, open),
-          high: Math.max(0.01, high),
-          low: Math.max(0.01, low),
-          close: Math.max(0.01, close),
-          volume: volume
+          timestamp: timestamp,
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+          volume: 0 // OHLC endpoint doesn't provide volume data
         });
       }
 
-      // For 15m timeframe, create multiple data points from daily data
-      if (timeframe === '15m' && historicalData.length > 0) {
-        const expandedData: HistoricalData[] = [];
-        
-        for (const dataPoint of historicalData) {
-          const baseDate = new Date(dataPoint.timestamp);
-          
-          // Create 8 data points (every 3 hours to simulate 15m intervals)
-          for (let i = 0; i < 8; i++) {
-            const intervalTime = new Date(baseDate.getTime() + (i * 3 * 60 * 60 * 1000));
-            
-            // Add some variation to each interval
-            const intervalVariation = dataPoint.close * 0.005; // 0.5% variation per interval
-            const randomVariation = (Math.random() - 0.5) * intervalVariation;
-            
-            expandedData.push({
-              timestamp: intervalTime.getTime(),
-              open: Math.max(0.01, dataPoint.open + randomVariation),
-              high: Math.max(0.01, dataPoint.high + Math.abs(randomVariation)),
-              low: Math.max(0.01, dataPoint.low - Math.abs(randomVariation)),
-              close: Math.max(0.01, dataPoint.close + randomVariation),
-              volume: dataPoint.volume / 8
-            });
-          }
-        }
-        
-        return expandedData;
+      // Log last few data points for debugging
+      if (historicalData.length > 0) {
+        const lastIndex = historicalData.length - 1;
+        const lastData = historicalData[lastIndex];
+        const lastDate = new Date(lastData.timestamp);
+        console.log(`Last data point:`, { 
+          timestamp: lastData.timestamp, 
+          date: lastDate.toISOString(),
+          open: lastData.open,
+          close: lastData.close
+        });
       }
 
       console.log(`CoinGecko: Retrieved ${historicalData.length} historical data points for ${symbol}`);
@@ -334,19 +330,21 @@ export class CoinGeckoProvider implements DataProvider {
         );
         
         if (exactMatch) {
-          console.log(`CoinGecko: Found ${symbol} -> ${exactMatch.id}`);
-          this.coinIdCache.set(upperSymbol, exactMatch.id);
-          return exactMatch.id;
+          const coinId = String(exactMatch.id);
+          console.log(`CoinGecko: Found ${symbol} -> ${coinId}`);
+          this.coinIdCache.set(upperSymbol, coinId);
+          return coinId;
         }
         
         // If no exact match, use the first result
         const firstResult = searchResults.coins[0];
-        console.log(`CoinGecko: Using first result for ${symbol} -> ${firstResult.id}`);
-        this.coinIdCache.set(upperSymbol, firstResult.id);
-        return firstResult.id;
+        const coinId = String(firstResult.id);
+        console.log(`CoinGecko: Using first result for ${symbol} -> ${coinId}`);
+        this.coinIdCache.set(upperSymbol, coinId);
+        return coinId;
       }
     } catch (error) {
-      console.warn(`CoinGecko: Search failed for ${symbol}:`, error.message);
+      console.warn(`CoinGecko: Search failed for ${symbol}:`, error instanceof Error ? error.message : String(error));
     }
     
     console.warn(`Coin ID not found for ${symbol}`);
