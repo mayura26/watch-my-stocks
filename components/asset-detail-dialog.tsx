@@ -255,7 +255,7 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                   {isLoading && timeframe === '15m' ? (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                   ) : null}
-                  15M
+                  1D
                 </Button>
                 <Button
                   variant={timeframe === '1d' ? 'default' : 'outline'}
@@ -266,7 +266,7 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                   {isLoading && timeframe === '1d' ? (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                   ) : null}
-                  1D
+                  1M
                 </Button>
               </div>
             </div>
