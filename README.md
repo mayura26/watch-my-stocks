@@ -44,11 +44,13 @@ ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
 
 ### Getting API Keys
 
-#### Finnhub (Stocks & Futures)
+#### Finnhub (Stocks)
 1. Visit [finnhub.io](https://finnhub.io)
 2. Sign up for a free account
 3. Get your API key from the dashboard
 4. Add it to your `.env.local` file as `FINNHUB_API_KEY`
+
+**Note**: Finnhub's free tier provides real-time quotes and search for stocks. Historical OHLC data is provided via Yahoo Finance (free) to avoid requiring a paid Finnhub subscription.
 
 #### CoinGecko (Cryptocurrency Data)
 1. Visit [CoinGecko API](https://www.coingecko.com/en/api)
@@ -105,8 +107,11 @@ ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
 
 The application uses a modular data provider system that allows for multiple data sources:
 
-- **FinnhubProvider**: Primary provider for stocks, crypto, and futures
-- **Extensible**: Easy to add new providers (Polygon, Alpha Vantage, etc.)
+- **FinnhubProvider**: Primary provider for stocks (quotes and search), uses Yahoo Finance for historical OHLC data
+- **CoinGeckoProvider**: Dedicated provider for cryptocurrency data (quotes, search, and historical data)
+- **YahooFinanceProvider**: Provider for futures data (quotes, search, and historical data)
+- **PolygonProvider**: Optional provider for additional market data coverage
+- **Extensible**: Easy to add new providers (Alpha Vantage, etc.)
 
 ### Asset Types
 

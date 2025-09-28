@@ -241,81 +241,26 @@ export class YahooFinanceProvider implements DataProvider {
       let period2: Date = now;
 
       if (timeframe === '15m') {
-        // For 15m data, always pull from the last valid trading point (5pm close) backwards
-        // This ensures we get consistent data regardless of current time or market status
-        const isFutures = symbol.endsWith('=F');
-        const currentTimeET = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-        const currentDay = currentTimeET.getDay(); // 0 = Sunday, 6 = Saturday
-        const hourET = currentTimeET.getHours();
+        // For 15m data, first get the most recent available data point, then work backwards
+        // This ensures we get the actual last available data point for futures
+        const recentResult = await yahooFinance.chart(symbol, {
+          period1: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // Last 2 days
+          period2: now,
+          interval: '15m'
+        });
         
-        if (isFutures) {
-          // For futures, find the last valid 5pm ET close
-          let lastValidClose: Date;
-          
-          if (currentDay === 0 && hourET < 18) {
-            // Sunday before 6PM ET - use Friday's 5PM ET close
-            lastValidClose = new Date(currentTimeET);
-            lastValidClose.setDate(currentTimeET.getDate() - 2); // Go back to Friday
-            lastValidClose.setHours(17, 0, 0, 0); // 5PM ET
-          } else if (currentDay === 6 && hourET >= 17) {
-            // Saturday after 5PM ET - use Friday's 5PM ET close
-            lastValidClose = new Date(currentTimeET);
-            lastValidClose.setDate(currentTimeET.getDate() - 1); // Go back to Friday
-            lastValidClose.setHours(17, 0, 0, 0); // 5PM ET
-          } else {
-            // Market is open or during trading hours - use current day's 5PM ET (if past) or previous day's 5PM ET
-            if (hourET >= 17) {
-              // Past 5PM ET today
-              lastValidClose = new Date(currentTimeET);
-              lastValidClose.setHours(17, 0, 0, 0); // 5PM ET today
-            } else {
-              // Before 5PM ET today - use previous trading day's 5PM ET
-              const prevTradingDay = new Date(currentTimeET);
-              if (currentDay === 1) { // Monday
-                prevTradingDay.setDate(currentTimeET.getDate() - 3); // Go back to Friday
-              } else {
-                prevTradingDay.setDate(currentTimeET.getDate() - 1); // Previous day
-              }
-              lastValidClose = new Date(prevTradingDay);
-              lastValidClose.setHours(17, 0, 0, 0); // 5PM ET
-            }
-          }
-          
-          console.log(`Yahoo Finance: Using last valid close (${lastValidClose.toISOString()}) for ${symbol} 15m data`);
-          
-          // Pull 8 hours of 15m data backwards from the last valid close
-          period1 = new Date(lastValidClose.getTime() - 8 * 60 * 60 * 1000); // 8 hours before close
-          period2 = lastValidClose;
+        if (!recentResult || !recentResult.quotes || recentResult.quotes.length === 0) {
+          // Fallback to current time minus 8 hours
+          period1 = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+          period2 = now;
         } else {
-          // For non-futures (stocks), use regular market hours logic
-          // Find the last valid 4PM ET close (regular market close)
-          const lastValidClose = new Date(currentTimeET);
+          // Find the most recent data point
+          const lastDataPoint = recentResult.quotes[recentResult.quotes.length - 1];
+          const lastAvailableTime = new Date(lastDataPoint.date);
           
-          if (currentDay === 0 || currentDay === 6) {
-            // Weekend - use Friday's 4PM ET close
-            lastValidClose.setDate(currentTimeET.getDate() - (currentDay === 0 ? 2 : 1)); // Go back to Friday
-            lastValidClose.setHours(16, 0, 0, 0); // 4PM ET
-          } else {
-            // Weekday - use today's 4PM ET (if past) or previous day's 4PM ET
-            if (hourET >= 16) {
-              // Past 4PM ET today
-              lastValidClose.setHours(16, 0, 0, 0); // 4PM ET today
-            } else {
-              // Before 4PM ET today - use previous trading day's 4PM ET
-              if (currentDay === 1) { // Monday
-                lastValidClose.setDate(currentTimeET.getDate() - 3); // Go back to Friday
-              } else {
-                lastValidClose.setDate(currentTimeET.getDate() - 1); // Previous day
-              }
-              lastValidClose.setHours(16, 0, 0, 0); // 4PM ET
-            }
-          }
-          
-          console.log(`Yahoo Finance: Using last valid close (${lastValidClose.toISOString()}) for ${symbol} 15m data`);
-          
-          // Pull 8 hours of 15m data backwards from the last valid close
-          period1 = new Date(lastValidClose.getTime() - 8 * 60 * 60 * 1000); // 8 hours before close
-          period2 = lastValidClose;
+          // Pull 8 hours of 15m data backwards from the last available data point
+          period1 = new Date(lastAvailableTime.getTime() - 8 * 60 * 60 * 1000); // 8 hours before last point
+          period2 = lastAvailableTime;
         }
       } else {
         // For 1d data, use 30-day lookback
@@ -323,18 +268,13 @@ export class YahooFinanceProvider implements DataProvider {
       }
       
       // Use chart() method for all timeframes since historical() is deprecated
-      console.log(`Yahoo Finance: Using chart() method for ${symbol} ${timeframe}`);
-      console.log(`Yahoo Finance: Period1: ${period1.toISOString()}, Period2: ${period2.toISOString()}, Interval: ${timeframe === '15m' ? '15m' : '1d'}`);
-      
       const result = await yahooFinance.chart(symbol, {
         period1,
         period2,
         interval: timeframe === '15m' ? '15m' : '1d'
       });
-      console.log(`Yahoo Finance: Chart result:`, result ? 'success' : 'null', result?.quotes?.length || 0, 'quotes');
 
       if (!result || !result.quotes || result.quotes.length === 0) {
-        console.warn(`No historical data found for ${symbol}`);
         return [];
       }
 
@@ -342,7 +282,6 @@ export class YahooFinanceProvider implements DataProvider {
       // chart() returns { quotes: [...] } format
       const quotes = result.quotes || [];
       if (quotes.length === 0) {
-        console.warn(`No quotes found in chart result for ${symbol}`);
         return [];
       }
       
@@ -356,8 +295,6 @@ export class YahooFinanceProvider implements DataProvider {
       })).sort((a: any, b: any) => a.timestamp - b.timestamp);
 
     } catch (error) {
-      console.error('Yahoo Finance historical data error:', error);
-      
       // If it's a consent or rate limit error, throw it for better error handling
       if (error instanceof Error && (
         error.message.includes('consent') ||

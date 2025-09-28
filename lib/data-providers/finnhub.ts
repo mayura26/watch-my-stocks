@@ -1,4 +1,5 @@
 import { DataProvider, SearchResult, QuoteData, Asset, DataProviderConfig, HistoricalData } from './types';
+import yahooFinance from 'yahoo-finance2';
 
 export class FinnhubProvider implements DataProvider {
   name = 'Finnhub';
@@ -162,63 +163,79 @@ export class FinnhubProvider implements DataProvider {
 
   async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
     try {
-      // For now, return mock data since Finnhub's historical data requires a paid plan
-      // In a real implementation, you would call the appropriate Finnhub endpoint
-      return this.generateMockHistoricalData(symbol, timeframe);
+      // Use Yahoo Finance for historical data since Finnhub's historical data requires a paid plan
+      // This provides real OHLC data for stocks without requiring a Finnhub subscription
+      const now = new Date();
+      let period1: Date;
+      let period2: Date = now;
+
+      if (timeframe === '15m') {
+        // For 15m data, first get the most recent available data point, then work backwards
+        // This ensures we get the actual last available data point and show exactly 8 hours
+        const recentResult = await yahooFinance.chart(symbol, {
+          period1: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // Last 2 days
+          period2: now,
+          interval: '15m'
+        });
+        
+        if (!recentResult || !recentResult.quotes || recentResult.quotes.length === 0) {
+          // Fallback to current time minus 8 hours
+          period1 = new Date(now.getTime() - 8 * 60 * 60 * 1000);
+          period2 = now;
+        } else {
+          // Find the most recent data point
+          const lastDataPoint = recentResult.quotes[recentResult.quotes.length - 1];
+          const lastAvailableTime = new Date(lastDataPoint.date);
+          
+          // Pull 8 hours of 15m data backwards from the last available data point
+          period1 = new Date(lastAvailableTime.getTime() - 8 * 60 * 60 * 1000); // 8 hours before last point
+          period2 = lastAvailableTime;
+        }
+      } else {
+        // For 1d data, use 30-day lookback
+        period1 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      
+      // Use yahoo-finance2 for real historical data
+      const result = await yahooFinance.chart(symbol, {
+        period1,
+        period2,
+        interval: timeframe === '15m' ? '15m' : '1d'
+      });
+
+      if (!result || !result.quotes || result.quotes.length === 0) {
+        return [];
+      }
+
+      // Convert yahoo-finance2 chart() format to our HistoricalData format
+      const quotes = result.quotes || [];
+      if (quotes.length === 0) {
+        return [];
+      }
+      
+      return quotes.map((item: any) => ({
+        timestamp: new Date(item.date).getTime(),
+        open: item.open || 0,
+        high: item.high || 0,
+        low: item.low || 0,
+        close: item.close || 0,
+        volume: item.volume || 0
+      })).sort((a: any, b: any) => a.timestamp - b.timestamp);
+
     } catch (error) {
-      console.error('Finnhub historical data error:', error);
+      // If it's a consent or rate limit error, throw it for better error handling
+      if (error instanceof Error && (
+        error.message.includes('consent') ||
+        error.message.includes('rate limit') ||
+        error.message.includes('429')
+      )) {
+        throw error;
+      }
+      
       return [];
     }
   }
 
-  private generateMockHistoricalData(symbol: string, timeframe: '15m' | '1d'): HistoricalData[] {
-    const now = Date.now();
-    
-    // Define time ranges for different timeframes
-    const timeRanges = {
-      '15m': {
-        interval: 15 * 60 * 1000, // 15 minutes
-        dataPoints: 32, // 8 hours (32 * 15min = 8 hours)
-        description: 'Last 8 hours'
-      },
-      '1d': {
-        interval: 24 * 60 * 60 * 1000, // 1 day
-        dataPoints: 30, // 30 days
-        description: 'Last 30 days'
-      }
-    };
-    
-    const config = timeRanges[timeframe];
-    const interval = config.interval;
-    const dataPoints = config.dataPoints;
-    
-    const data: HistoricalData[] = [];
-    let basePrice = 100 + Math.random() * 200; // Random base price between 100-300
-    
-    for (let i = dataPoints; i >= 0; i--) {
-      const timestamp = now - (i * interval);
-      const open = basePrice;
-      const volatility = 0.02; // 2% volatility
-      const change = (Math.random() - 0.5) * volatility;
-      const close = open * (1 + change);
-      const high = Math.max(open, close) * (1 + Math.random() * volatility * 0.5);
-      const low = Math.min(open, close) * (1 - Math.random() * volatility * 0.5);
-      const volume = Math.floor(Math.random() * 1000000) + 100000;
-      
-      data.push({
-        timestamp,
-        open: Number(open.toFixed(2)),
-        high: Number(high.toFixed(2)),
-        low: Number(low.toFixed(2)),
-        close: Number(close.toFixed(2)),
-        volume
-      });
-      
-      basePrice = close; // Next candle starts where this one ended
-    }
-    
-    return data;
-  }
 
   async isHealthy(): Promise<boolean> {
     try {

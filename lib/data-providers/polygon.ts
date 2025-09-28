@@ -185,7 +185,6 @@ export class PolygonProvider implements DataProvider {
           }
         }
         
-        console.log(`Polygon: Using last valid close (${lastValidClose.toISOString()}) for ${symbol} 15m data`);
         
         // Pull 8 hours of 15m data backwards from the last valid close
         from = new Date(lastValidClose.getTime() - 8 * 60 * 60 * 1000); // 8 hours before close
@@ -208,7 +207,6 @@ export class PolygonProvider implements DataProvider {
       const data = await response.json();
       
       if (!data.results || data.results.length === 0) {
-        console.warn(`No historical data found for ${symbol}`);
         return [];
       }
 

@@ -54,7 +54,6 @@ export class CoinGeckoProvider implements DataProvider {
       }));
 
     } catch (err) {
-      console.error('CoinGecko search error:', err);
       return [];
     }
   }
@@ -160,8 +159,6 @@ export class CoinGeckoProvider implements DataProvider {
 
       // Calculate date range based on timeframe
       const days = timeframe === '15m' ? 1 : 30;
-
-      console.log(`CoinGecko: Getting historical data for ${symbol}, coinId: ${coinId}, timeframe: ${timeframe}, days: ${days}`);
       
       // Use the OHLC endpoint which provides proper OHLC data
       // Correct SDK method: coingeckoClient.coins.ohlc.get(id, params)
@@ -178,8 +175,6 @@ export class CoinGeckoProvider implements DataProvider {
       // Convert OHLC format to our HistoricalData format
       // OHLC returns: [timestamp, open, high, low, close]
       const historicalData: HistoricalData[] = [];
-
-      console.log(`CoinGecko: Processing ${data.length} OHLC data points`);
 
       for (let i = 0; i < data.length; i++) {
         const ohlcData = data[i];
@@ -198,19 +193,6 @@ export class CoinGeckoProvider implements DataProvider {
           timestamp = timestamp * 1000; // Convert seconds to milliseconds
         }
 
-        // Log first few data points for debugging
-        if (i < 3) {
-          const date = new Date(timestamp);
-          const currentTime = Date.now();
-          console.log(`Data point ${i}:`, { 
-            originalTimestamp: ohlcData[0],
-            convertedTimestamp: timestamp, 
-            date: date.toISOString(),
-            currentTime: new Date(currentTime).toISOString(),
-            isFuture: timestamp > currentTime,
-            open, high, low, close 
-          });
-        }
 
         // Use the converted timestamp
         historicalData.push({
@@ -223,24 +205,9 @@ export class CoinGeckoProvider implements DataProvider {
         });
       }
 
-      // Log last few data points for debugging
-      if (historicalData.length > 0) {
-        const lastIndex = historicalData.length - 1;
-        const lastData = historicalData[lastIndex];
-        const lastDate = new Date(lastData.timestamp);
-        console.log(`Last data point:`, { 
-          timestamp: lastData.timestamp, 
-          date: lastDate.toISOString(),
-          open: lastData.open,
-          close: lastData.close
-        });
-      }
-
-      console.log(`CoinGecko: Retrieved ${historicalData.length} historical data points for ${symbol}`);
       return historicalData;
 
     } catch (err) {
-      console.error('CoinGecko historical data error:', err);
       return [];
     }
   }
@@ -251,7 +218,6 @@ export class CoinGeckoProvider implements DataProvider {
       await coingeckoClient.ping.get();
       return true;
     } catch (err) {
-      console.error('CoinGecko health check error:', err);
       return false;
     }
   }
@@ -318,7 +284,6 @@ export class CoinGeckoProvider implements DataProvider {
 
     // If not found in common coins, try to search for it via API
     try {
-      console.log(`CoinGecko: Searching for ${symbol} via API...`);
       const searchResults = await coingeckoClient.search.get({
         query: symbol,
       });
@@ -331,7 +296,6 @@ export class CoinGeckoProvider implements DataProvider {
         
         if (exactMatch) {
           const coinId = String(exactMatch.id);
-          console.log(`CoinGecko: Found ${symbol} -> ${coinId}`);
           this.coinIdCache.set(upperSymbol, coinId);
           return coinId;
         }
@@ -339,15 +303,13 @@ export class CoinGeckoProvider implements DataProvider {
         // If no exact match, use the first result
         const firstResult = searchResults.coins[0];
         const coinId = String(firstResult.id);
-        console.log(`CoinGecko: Using first result for ${symbol} -> ${coinId}`);
         this.coinIdCache.set(upperSymbol, coinId);
         return coinId;
       }
     } catch (error) {
-      console.warn(`CoinGecko: Search failed for ${symbol}:`, error instanceof Error ? error.message : String(error));
+      // Search failed, continue to return null
     }
     
-    console.warn(`Coin ID not found for ${symbol}`);
     return null;
   }
 }

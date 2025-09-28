@@ -111,7 +111,6 @@ export class DataManager {
     } catch (error) {
       console.error('Error fetching asset type from database:', error);
       // Fallback to legacy symbol detection if database is not available
-      console.log('Falling back to legacy symbol detection for', symbol);
       return this.determineAssetType(symbol);
     }
   }
