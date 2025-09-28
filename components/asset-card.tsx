@@ -1,6 +1,7 @@
 import { Asset } from '@/types/asset';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useRelativeTime } from '@/lib/hooks/use-relative-time';
 
 interface AssetCardProps {
   asset: Asset;
@@ -10,6 +11,7 @@ interface AssetCardProps {
 export function AssetCard({ asset, onClick }: AssetCardProps) {
   const isPositive = asset.change >= 0;
   const ChangeIcon = isPositive ? TrendingUp : TrendingDown;
+  const relativeTime = useRelativeTime(asset.lastUpdated);
 
   return (
     <Card 
@@ -51,7 +53,7 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
             {/* Last updated indicator */}
             {asset.lastUpdated && (
               <div className="text-xs text-muted-foreground mt-1">
-                Updated {new Date(asset.lastUpdated).toLocaleTimeString()}
+                Updated {relativeTime}
               </div>
             )}
       </CardContent>

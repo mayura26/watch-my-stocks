@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { CandlestickChart } from './candlestick-chart';
 import { ChartSkeleton } from './chart-skeleton';
+import { useDetailedRelativeTime } from '@/lib/hooks/use-relative-time';
 
 interface AssetDetailDialogProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
   const [dataError, setDataError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [timeframe, setTimeframe] = useState<'15m' | '1d'>('1d');
+  const relativeTime = useDetailedRelativeTime(asset?.lastUpdated);
 
   const loadHistoricalData = useCallback(async () => {
     if (!asset) return;
@@ -176,7 +178,7 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-2">
-                    Last updated: {new Date(asset.lastUpdated).toLocaleString()}
+                    Last updated: {relativeTime}
                   </div>
                 </CardContent>
               </Card>
