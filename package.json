@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "init-db": "tsx scripts/init-db.ts"
+    "init-db": "tsx scripts/init-db.ts",
+    "alerts": "tsx scripts/alert-scheduler.ts",
+    "alerts:once": "tsx scripts/alert-check-once.ts"
   },
   "dependencies": {
     "@coingecko/coingecko-typescript": "^2.0.0",

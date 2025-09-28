@@ -69,6 +69,7 @@ export async function initializeDatabase() {
         alert_id TEXT NOT NULL,
         title TEXT NOT NULL,
         message TEXT NOT NULL,
+        notification_type TEXT NOT NULL, -- 'price_alert', 'system', 'info'
         is_read BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id),
@@ -100,6 +101,20 @@ export async function initializeDatabase() {
     `);
     await client.execute(`
       CREATE INDEX IF NOT EXISTS idx_available_assets_type ON available_assets(asset_type)
+    `);
+
+    // Create indexes for notifications table
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_notifications_alert_id ON notifications(alert_id)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)
     `);
 
     console.log('Database initialized successfully');

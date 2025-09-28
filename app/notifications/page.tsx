@@ -17,11 +17,17 @@ import {
 
 interface Notification {
   id: string;
+  alert_id: string;
+  symbol: string;
+  asset_name: string;
+  asset_type: string;
+  alert_type: string;
+  threshold_value: number;
   title: string;
   message: string;
+  notification_type: string;
   is_read: boolean;
   created_at: string;
-  alert_id: string;
 }
 
 export default function NotificationsPage() {
@@ -40,7 +46,7 @@ export default function NotificationsPage() {
 
   const loadNotifications = async () => {
     try {
-      const response = await fetch('/api/notifications');
+      const response = await fetch('/api/notifications?limit=50');
       if (response.ok) {
         const data = await response.json();
         setNotifications(data.notifications || []);
@@ -230,9 +236,22 @@ export default function NotificationsPage() {
                         )}
                       </div>
                       
-                      <p className="text-muted-foreground mb-3">
-                        {notification.message}
-                      </p>
+                      <div className="mb-3">
+                        <p className="text-muted-foreground mb-2">
+                          {notification.message}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <Badge variant="outline" className="text-xs">
+                            {notification.asset_type?.toUpperCase()}
+                          </Badge>
+                          <span className="font-mono">
+                            {notification.symbol}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {notification.alert_type === 'price_above' ? 'Above' : 'Below'} ${notification.threshold_value?.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
 
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
