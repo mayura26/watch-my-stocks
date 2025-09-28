@@ -1,5 +1,6 @@
 import { Asset } from '@/types/asset';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface AssetCardProps {
@@ -10,6 +11,14 @@ interface AssetCardProps {
 export function AssetCard({ asset, onClick }: AssetCardProps) {
   const isPositive = asset.change >= 0;
   const ChangeIcon = isPositive ? TrendingUp : TrendingDown;
+
+  const getAssetTypeColor = (type: string) => {
+    switch (type) {
+      case 'crypto': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'future': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      default: return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+    }
+  };
 
   return (
     <Card
@@ -40,7 +49,9 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
-          <span className="capitalize truncate hidden sm:block">{asset.type}</span>
+          <Badge className={`${getAssetTypeColor(asset.type)} hidden sm:inline-flex`}>
+            {asset.type.toUpperCase()}
+          </Badge>
         </div>
       </CardContent>
     </Card>

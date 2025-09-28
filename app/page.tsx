@@ -120,6 +120,16 @@ export default function Home() {
     }
   };
 
+  // Sort and group assets by type: futures, crypto, then stocks
+  const getSortedPortfolio = (assets: PortfolioAsset[]) => {
+    const typeOrder = { 'future': 0, 'crypto': 1, 'stock': 2 };
+    return [...assets].sort((a, b) => {
+      const aOrder = typeOrder[a.type as keyof typeof typeOrder] ?? 999;
+      const bOrder = typeOrder[b.type as keyof typeof typeOrder] ?? 999;
+      return aOrder - bOrder;
+    });
+  };
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-background">
@@ -201,8 +211,8 @@ export default function Home() {
                 ))}
               </div>
             ) : portfolio.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {portfolio.map((asset) => (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {getSortedPortfolio(portfolio).map((asset) => (
                   <div key={asset.id} className="relative group">
                         <AssetCard
                           asset={{
