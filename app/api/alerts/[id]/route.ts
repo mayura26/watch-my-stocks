@@ -116,16 +116,16 @@ export async function DELETE(
       );
     }
 
-    // Delete the alert
-    await client.execute({
-      sql: 'DELETE FROM alerts WHERE id = ? AND user_id = ?',
-      args: [alertId, session.user.id]
-    });
-
-    // Also delete associated notifications
+    // First delete associated notifications (due to foreign key constraint)
     await client.execute({
       sql: 'DELETE FROM notifications WHERE alert_id = ?',
       args: [alertId]
+    });
+
+    // Then delete the alert
+    await client.execute({
+      sql: 'DELETE FROM alerts WHERE id = ? AND user_id = ?',
+      args: [alertId, session.user.id]
     });
 
     return NextResponse.json({ message: 'Alert deleted successfully' });
