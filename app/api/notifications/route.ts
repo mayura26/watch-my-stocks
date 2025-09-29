@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       args: [session.user.id]
     });
 
-    const total = countResult.rows[0]?.total || 0;
+    const total = Number(countResult.rows[0]?.total) || 0;
 
     return NextResponse.json({
       notifications,

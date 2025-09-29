@@ -6,11 +6,20 @@ dotenv.config({ path: '.env' });
 async function checkAlertsOnce() {
   try {
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const cronSecret = process.env.CRON_SECRET;
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if cron secret is configured
+    if (cronSecret) {
+      headers['Authorization'] = `Bearer ${cronSecret}`;
+    }
+    
     const response = await fetch(`${baseUrl}/api/alerts/check`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (response.ok) {
