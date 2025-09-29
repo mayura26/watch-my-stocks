@@ -92,6 +92,16 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Create price_history table for alert cross-detection
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS price_history (
+        id TEXT PRIMARY KEY,
+        symbol TEXT NOT NULL,
+        price REAL NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes
     await client.execute(`
       CREATE INDEX IF NOT EXISTS idx_available_assets_symbol ON available_assets(symbol)
@@ -115,6 +125,17 @@ export async function initializeDatabase() {
     `);
     await client.execute(`
       CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)
+    `);
+
+    // Create indexes for price_history table
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_price_history_symbol ON price_history(symbol)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_price_history_timestamp ON price_history(timestamp)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_price_history_symbol_timestamp ON price_history(symbol, timestamp)
     `);
 
     console.log('Database initialized successfully');

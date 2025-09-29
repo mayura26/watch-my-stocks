@@ -1,13 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import client from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-// import { DataManager } from '@/lib/data-providers/manager'; // TODO: Use this for future data provider logic
+import { DataManager } from '@/lib/data-providers/manager';
 
 // POST /api/alerts/check - Check all active alerts and trigger notifications
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    // This endpoint should be called by a cron job or background service
-    // For now, we'll make it accessible but in production you'd want to secure it
+    // Security check for cron secret (if configured)
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        console.log('Unauthorized alert check attempt');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
     
     console.log('Starting alert check process...');
     
@@ -37,39 +44,55 @@ export async function POST() {
       });
     }
 
-    // const dataManager = new DataManager(); // TODO: Use this for future data provider logic
+    // Initialize data manager for direct API calls (no HTTP overhead)
+    const dataManager = new DataManager();
     let checkedCount = 0;
     let triggeredCount = 0;
 
-    // Process alerts in batches to avoid overwhelming the APIs
-    const batchSize = 10;
-    for (let i = 0; i < alerts.length; i += batchSize) {
-      const batch = alerts.slice(i, i + batchSize);
+    // Group alerts by symbol to optimize price fetching and storage
+    const alertsBySymbol = new Map<string, any[]>();
+    for (const alert of alerts) {
+      const symbol = String(alert.symbol);
+      if (!alertsBySymbol.has(symbol)) {
+        alertsBySymbol.set(symbol, []);
+      }
+      alertsBySymbol.get(symbol)!.push(alert);
+    }
+
+    console.log(`Processing ${alertsBySymbol.size} unique symbols with ${alerts.length} total alerts`);
+
+    // Process symbols in batches to avoid overwhelming the APIs
+    const symbolBatchSize = 10;
+    const symbols = Array.from(alertsBySymbol.keys());
+    
+    for (let i = 0; i < symbols.length; i += symbolBatchSize) {
+      const symbolBatch = symbols.slice(i, i + symbolBatchSize);
       
-        // Get current prices for all symbols in this batch
-        const symbols = batch.map((alert: any) => String(alert.symbol));
-        const uniqueSymbols = [...new Set(symbols)];
+      try {
+        // Get current prices for all symbols in this batch using DataManager directly
+        console.log(`Fetching quotes for symbols: ${symbolBatch.join(', ')}`);
+        const quotesMap = await dataManager.getMultipleQuotes(symbolBatch);
         
-        try {
-          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-          const quotesResponse = await fetch(`${baseUrl}/api/assets/quotes?symbols=${uniqueSymbols.join(',')}`);
-          if (!quotesResponse.ok) {
-            console.error(`Failed to fetch quotes for batch: ${uniqueSymbols.join(',')}`);
+        // Process each symbol and all its alerts
+        for (const symbol of symbolBatch) {
+          const symbolAlerts = alertsBySymbol.get(symbol)!;
+          const quoteData = quotesMap.get(symbol);
+          const currentPrice = quoteData?.currentPrice;
+          
+          if (!currentPrice || typeof currentPrice !== 'number') {
+            console.log(`No current price available for ${symbol}`);
             continue;
           }
           
-          const quotesData = await quotesResponse.json();
-          const quotes = quotesData.quotes || {};
+          // Get previous price for cross-detection (once per symbol)
+          const previousPrice = await getPreviousPrice(symbol);
           
-          // Check each alert in the batch
-          for (const alert of batch) {
+          // Store current price for next check (once per symbol)
+          await storePriceHistory(symbol, currentPrice);
+          
+          // Process all alerts for this symbol
+          for (const alert of symbolAlerts) {
             checkedCount++;
-            const currentPrice = quotes[String(alert.symbol)]?.price;
-            
-            if (!currentPrice || typeof currentPrice !== 'number') {
-              console.log(`No current price available for ${alert.symbol}`);
-              continue;
-            }
             
             const thresholdValue = Number(alert.threshold_value);
             if (isNaN(thresholdValue)) {
@@ -77,17 +100,17 @@ export async function POST() {
               continue;
             }
             
-            const shouldTrigger = checkAlertCondition(alert, currentPrice);
+            const shouldTrigger = checkAlertCondition(alert, currentPrice, previousPrice);
             
             if (shouldTrigger) {
               // Check if we should trigger (dead bounce mechanism)
               const shouldCreateNotification = await shouldTriggerNotification(String(alert.id));
               
               if (shouldCreateNotification) {
-                await createNotification(alert, currentPrice);
+                await createNotification(alert, currentPrice, previousPrice);
                 await updateAlertTrigger(String(alert.id));
                 triggeredCount++;
-                console.log(`Alert triggered for ${alert.symbol}: ${alert.alert_type} ${thresholdValue} (current: ${currentPrice})`);
+                console.log(`Alert triggered for ${alert.symbol}: ${alert.alert_type} ${thresholdValue} (crossed from ${previousPrice} to ${currentPrice})`);
               }
             } else {
               // For testing: create a notification if the price is close to the threshold
@@ -99,12 +122,13 @@ export async function POST() {
               }
             }
           }
-        
+        }
+      
         // Small delay between batches to be respectful to APIs
         await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (error) {
-        console.error(`Error processing batch ${i}-${i + batchSize}:`, error);
+        console.error(`Error processing symbol batch ${i}-${i + symbolBatchSize}:`, error);
         continue;
       }
     }
@@ -126,7 +150,7 @@ export async function POST() {
   }
 }
 
-function checkAlertCondition(alert: any, currentPrice: number): boolean {
+function checkAlertCondition(alert: any, currentPrice: number, previousPrice: number | null): boolean {
   const alertType = String(alert.alert_type);
   const thresholdValue = Number(alert.threshold_value);
   
@@ -134,15 +158,29 @@ function checkAlertCondition(alert: any, currentPrice: number): boolean {
     return false;
   }
   
+  // If we don't have a previous price, we can't detect a cross
+  // This will happen on the first check for a symbol
+  if (previousPrice === null) {
+    console.log(`No previous price available for ${alert.symbol}, skipping cross-detection`);
+    return false;
+  }
+  
   switch (alertType) {
     case 'price_above':
-      return currentPrice > thresholdValue;
+      // Trigger only when price crosses from below/equal to above the threshold
+      // old_price <= threshold AND new_price > threshold
+      return previousPrice <= thresholdValue && currentPrice > thresholdValue;
+      
     case 'price_below':
-      return currentPrice < thresholdValue;
+      // Trigger only when price crosses from above/equal to below the threshold
+      // old_price >= threshold AND new_price < threshold
+      return previousPrice >= thresholdValue && currentPrice < thresholdValue;
+      
     case 'percentage_move':
       // For percentage moves, we'd need the previous price
-      // For now, we'll skip this type until we implement price history tracking
+      // For now, we'll skip this type until we implement percentage calculation
       return false;
+      
     default:
       return false;
   }
@@ -164,7 +202,7 @@ async function shouldTriggerNotification(alertId: string): Promise<boolean> {
   return recentTrigger.rows[0]?.count === 0;
 }
 
-async function createNotification(alert: any, currentPrice: number): Promise<void> {
+async function createNotification(alert: any, currentPrice: number, previousPrice: number | null): Promise<void> {
   const notificationId = uuidv4();
   const symbol = String(alert.symbol);
   const alertType = String(alert.alert_type);
@@ -173,7 +211,20 @@ async function createNotification(alert: any, currentPrice: number): Promise<voi
   const alertId = String(alert.id);
   
   const title = `Price Alert: ${symbol}`;
-  const message = `${symbol} ${alertType === 'price_above' ? 'rose above' : 'fell below'} $${thresholdValue.toFixed(2)} (current: $${currentPrice.toFixed(2)})`;
+  
+  // Create more informative message with cross information
+  let message: string;
+  if (previousPrice !== null) {
+    const direction = alertType === 'price_above' ? 'rose above' : 'fell below';
+    const change = currentPrice - previousPrice;
+    const changePercent = ((change / previousPrice) * 100).toFixed(2);
+    const changeSign = change >= 0 ? '+' : '';
+    
+    message = `${symbol} ${direction} $${thresholdValue.toFixed(2)} ($${previousPrice.toFixed(2)} → $${currentPrice.toFixed(2)}, ${changeSign}${changePercent}%)`;
+  } else {
+    // Fallback for first-time alerts
+    message = `${symbol} ${alertType === 'price_above' ? 'rose above' : 'fell below'} $${thresholdValue.toFixed(2)} (current: $${currentPrice.toFixed(2)})`;
+  }
   
   await client.execute({
     sql: `
@@ -195,4 +246,58 @@ async function updateAlertTrigger(alertId: string): Promise<void> {
     `,
     args: [alertId]
   });
+}
+
+// Helper function to get the most recent previous price for a symbol
+async function getPreviousPrice(symbol: string): Promise<number | null> {
+  try {
+    const result = await client.execute({
+      sql: `
+        SELECT price 
+        FROM price_history 
+        WHERE symbol = ? 
+        ORDER BY timestamp DESC 
+        LIMIT 1
+      `,
+      args: [symbol]
+    });
+    
+    return result.rows.length > 0 ? Number(result.rows[0].price) : null;
+  } catch (error) {
+    console.error(`Error getting previous price for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Helper function to store current price in price history
+async function storePriceHistory(symbol: string, price: number): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+    
+    // Check if we already have a price entry for this symbol in the last minute
+    // This prevents duplicate entries when multiple alerts exist for the same symbol
+    const recentEntry = await client.execute({
+      sql: `
+        SELECT COUNT(*) as count 
+        FROM price_history 
+        WHERE symbol = ? AND timestamp > datetime('now', '-1 minute')
+      `,
+      args: [symbol]
+    });
+    
+    // Only insert if we don't have a recent entry
+    if (recentEntry.rows[0]?.count === 0) {
+      const priceId = uuidv4();
+      await client.execute({
+        sql: `
+          INSERT INTO price_history (id, symbol, price, timestamp)
+          VALUES (?, ?, ?, ?)
+        `,
+        args: [priceId, symbol, price, now]
+      });
+    }
+  } catch (error) {
+    console.error(`Error storing price history for ${symbol}:`, error);
+    // Don't throw - we don't want price storage errors to break the alert system
+  }
 }
