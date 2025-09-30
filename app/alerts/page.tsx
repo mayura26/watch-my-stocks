@@ -18,7 +18,9 @@ import {
   TrendingDown, 
   DollarSign,
   Search,
-  MoreVertical
+  MoreVertical,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -51,6 +53,7 @@ export default function AlertsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [editThreshold, setEditThreshold] = useState('');
+  const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
 
   // Load alerts
   useEffect(() => {
@@ -209,6 +212,44 @@ export default function AlertsPage() {
     return matchesSearch && matchesFilter;
   });
 
+  // Group alerts by symbol
+  const groupedAlerts = filteredAlerts.reduce((groups, alert) => {
+    const key = alert.symbol;
+    if (!groups[key]) {
+      groups[key] = {
+        symbol: alert.symbol,
+        asset_name: alert.asset_name,
+        asset_type: alert.asset_type,
+        alerts: []
+      };
+    }
+    groups[key].alerts.push(alert);
+    return groups;
+  }, {} as Record<string, { symbol: string; asset_name: string; asset_type: string; alerts: Alert[] }>);
+
+  const assetGroups = Object.values(groupedAlerts);
+
+  // Auto-expand all groups when filter or search is active
+  const shouldAutoExpand = searchTerm || filterType !== 'all';
+
+  const toggleAsset = (symbol: string) => {
+    const newExpanded = new Set(expandedAssets);
+    if (newExpanded.has(symbol)) {
+      newExpanded.delete(symbol);
+    } else {
+      newExpanded.add(symbol);
+    }
+    setExpandedAssets(newExpanded);
+  };
+
+  const toggleAllAssets = () => {
+    if (expandedAssets.size === assetGroups.length) {
+      setExpandedAssets(new Set());
+    } else {
+      setExpandedAssets(new Set(assetGroups.map(g => g.symbol)));
+    }
+  };
+
   if (status === 'loading' || isLoading) {
     return (
       <>
@@ -306,6 +347,19 @@ export default function AlertsPage() {
         </div>
       </div>
 
+      {/* Expand/Collapse All Button */}
+      {assetGroups.length > 0 && !shouldAutoExpand && (
+        <div className="flex justify-end mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleAllAssets}
+          >
+            {expandedAssets.size === assetGroups.length ? 'Collapse All' : 'Expand All'}
+          </Button>
+        </div>
+      )}
+
       {/* Alerts List */}
       {filteredAlerts.length === 0 ? (
         <Card>
@@ -328,79 +382,132 @@ export default function AlertsPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {filteredAlerts.map((alert) => (
-            <Card key={alert.id} className={!alert.is_enabled ? 'opacity-60' : ''}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      {getAlertIcon(alert.alert_type)}
-                      <div>
-                        <h3 className="font-semibold text-lg">{alert.symbol}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {alert.asset_name}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">
-                        {getAlertTypeLabel(alert.alert_type)}
-                      </Badge>
-                    </div>
-                    
-                    <p className="text-muted-foreground mb-3">
-                      {getAlertDescription(alert)}
-                    </p>
+          {assetGroups.map((group) => {
+            const isExpanded = shouldAutoExpand || expandedAssets.has(group.symbol);
+            const totalAlerts = group.alerts.length;
+            const enabledAlerts = group.alerts.filter(a => a.is_enabled).length;
+            const totalTriggers = group.alerts.reduce((sum, a) => sum + a.trigger_count, 0);
 
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>
-                        Triggered: {alert.trigger_count} times
-                      </span>
-                      {alert.last_triggered && (
-                        <span>
-                          Last: {new Date(alert.last_triggered).toLocaleDateString()}
-                        </span>
+            return (
+              <Card key={group.symbol} className="py-1.5">
+                {/* Asset Header */}
+                <CardHeader 
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => !shouldAutoExpand && toggleAsset(group.symbol)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      {!shouldAutoExpand && (
+                        isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        )
                       )}
-                      <span>
-                        Created: {new Date(alert.created_at).toLocaleDateString()}
-                      </span>
+                      <div>
+                        <CardTitle className="text-xl">{group.symbol}</CardTitle>
+                        <CardDescription>{group.asset_name}</CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          {totalAlerts} {totalAlerts === 1 ? 'Alert' : 'Alerts'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {enabledAlerts} enabled • {totalTriggers} triggers
+                        </div>
+                      </div>
                     </div>
                   </div>
+                </CardHeader>
 
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={alert.is_enabled}
-                      onCheckedChange={(checked) => handleToggleEnabled(alert.id, checked)}
-                    />
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingAlert(alert);
-                            setEditThreshold(alert.threshold_value.toString());
-                          }}
-                        >
-                          <Edit2 className="w-4 h-4 mr-2" />
-                          Edit Threshold
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteAlert(alert.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                {/* Alerts for this asset */}
+                {isExpanded && (
+                  <CardContent className="pt-0">
+                    <div className="grid gap-3">
+                      {group.alerts.map((alert) => (
+                        <Card key={alert.id} className={!alert.is_enabled ? 'opacity-60' : ''}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  {getAlertIcon(alert.alert_type)}
+                                  <Badge 
+                                    variant="outline"
+                                    className={
+                                      alert.alert_type === 'price_above' 
+                                        ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800' 
+                                        : alert.alert_type === 'price_below'
+                                        ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800'
+                                        : 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'
+                                    }
+                                  >
+                                    {getAlertTypeLabel(alert.alert_type)}
+                                  </Badge>
+                                </div>
+                                
+                                <p className="text-muted-foreground mb-3">
+                                  {getAlertDescription(alert)}
+                                </p>
+
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span>
+                                    Triggered: {alert.trigger_count} times
+                                  </span>
+                                  {alert.last_triggered && (
+                                    <span>
+                                      Last: {new Date(alert.last_triggered).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                  <span>
+                                    Created: {new Date(alert.created_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={alert.is_enabled}
+                                  onCheckedChange={(checked) => handleToggleEnabled(alert.id, checked)}
+                                />
+                                
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingAlert(alert);
+                                        setEditThreshold(alert.threshold_value.toString());
+                                      }}
+                                    >
+                                      <Edit2 className="w-4 h-4 mr-2" />
+                                      Edit Threshold
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleDeleteAlert(alert.id)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 

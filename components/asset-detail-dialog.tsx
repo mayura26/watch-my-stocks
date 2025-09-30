@@ -414,11 +414,24 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant={alert.alert_type === 'price_above' ? 'default' : 'secondary'}>
-                              {alert.alert_type === 'price_above' ? 'Above' : 'Below'}
+                            <Badge 
+                              variant="outline"
+                              className={
+                                alert.alert_type === 'price_above' 
+                                  ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800' 
+                                  : alert.alert_type === 'price_below'
+                                  ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800'
+                                  : 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'
+                              }
+                            >
+                              {alert.alert_type === 'price_above' ? 'Above' : 
+                               alert.alert_type === 'price_below' ? 'Below' : 
+                               'Percentage'}
                             </Badge>
                             <span className="font-mono text-lg font-semibold">
-                              ${alert.threshold_value.toFixed(2)}
+                              {alert.alert_type === 'percentage_move' 
+                                ? `${alert.threshold_value}%` 
+                                : `$${alert.threshold_value.toFixed(2)}`}
                             </span>
                             {!alert.is_enabled && (
                               <Badge variant="outline" className="text-xs">
@@ -429,7 +442,9 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                           <div className="text-sm text-muted-foreground">
                             {alert.alert_type === 'price_above' 
                               ? `Alert when ${asset?.symbol} goes above $${alert.threshold_value.toFixed(2)}`
-                              : `Alert when ${asset?.symbol} goes below $${alert.threshold_value.toFixed(2)}`
+                              : alert.alert_type === 'price_below'
+                              ? `Alert when ${asset?.symbol} goes below $${alert.threshold_value.toFixed(2)}`
+                              : `Alert when ${asset?.symbol} moves ${alert.threshold_value}% in a day`
                             }
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">

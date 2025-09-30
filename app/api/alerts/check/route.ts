@@ -90,6 +90,9 @@ export async function POST(request: NextRequest) {
           // Store current price for next check (once per symbol)
           await storePriceHistory(symbol, currentPrice);
           
+          // Store daily open price if this is the first price of the day
+          await storeDailyOpenPrice(symbol, currentPrice);
+          
           // Process all alerts for this symbol
           for (const alert of symbolAlerts) {
             checkedCount++;
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
               continue;
             }
             
-            const shouldTrigger = checkAlertCondition(alert, currentPrice, previousPrice);
+            const shouldTrigger = await checkAlertCondition(alert, currentPrice, previousPrice);
             
             if (shouldTrigger) {
               // Check if we should trigger (dead bounce mechanism)
@@ -111,14 +114,6 @@ export async function POST(request: NextRequest) {
                 await updateAlertTrigger(String(alert.id));
                 triggeredCount++;
                 console.log(`Alert triggered for ${alert.symbol}: ${alert.alert_type} ${thresholdValue} (crossed from ${previousPrice} to ${currentPrice})`);
-              }
-            } else {
-              // For testing: create a notification if the price is close to the threshold
-              const priceDiff = Math.abs(currentPrice - thresholdValue);
-              const thresholdPercent = (priceDiff / thresholdValue) * 100;
-              
-              if (thresholdPercent < 5) { // Within 5% of threshold
-                console.log(`Price close to threshold for ${alert.symbol}: ${currentPrice} vs ${thresholdValue} (${thresholdPercent.toFixed(1)}% away)`);
               }
             }
           }
@@ -150,7 +145,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function checkAlertCondition(alert: any, currentPrice: number, previousPrice: number | null): boolean {
+async function checkAlertCondition(alert: any, currentPrice: number, previousPrice: number | null): Promise<boolean> {
   const alertType = String(alert.alert_type);
   const thresholdValue = Number(alert.threshold_value);
   
@@ -158,28 +153,29 @@ function checkAlertCondition(alert: any, currentPrice: number, previousPrice: nu
     return false;
   }
   
-  // If we don't have a previous price, we can't detect a cross
-  // This will happen on the first check for a symbol
-  if (previousPrice === null) {
-    console.log(`No previous price available for ${alert.symbol}, skipping cross-detection`);
-    return false;
-  }
-  
   switch (alertType) {
     case 'price_above':
+      // If we don't have a previous price, we can't detect a cross
+      if (previousPrice === null) {
+        console.log(`No previous price available for ${alert.symbol}, skipping cross-detection`);
+        return false;
+      }
       // Trigger only when price crosses from below/equal to above the threshold
       // old_price <= threshold AND new_price > threshold
       return previousPrice <= thresholdValue && currentPrice > thresholdValue;
       
     case 'price_below':
+      // If we don't have a previous price, we can't detect a cross
+      if (previousPrice === null) {
+        console.log(`No previous price available for ${alert.symbol}, skipping cross-detection`);
+        return false;
+      }
       // Trigger only when price crosses from above/equal to below the threshold
       // old_price >= threshold AND new_price < threshold
       return previousPrice >= thresholdValue && currentPrice < thresholdValue;
       
     case 'percentage_move':
-      // For percentage moves, we'd need the previous price
-      // For now, we'll skip this type until we implement percentage calculation
-      return false;
+      return await checkPercentageMoveAlert(alert, currentPrice, previousPrice);
       
     default:
       return false;
@@ -214,16 +210,35 @@ async function createNotification(alert: any, currentPrice: number, previousPric
   
   // Create more informative message with cross information
   let message: string;
-  if (previousPrice !== null) {
-    const direction = alertType === 'price_above' ? 'rose above' : 'fell below';
-    const change = currentPrice - previousPrice;
-    const changePercent = ((change / previousPrice) * 100).toFixed(2);
-    const changeSign = change >= 0 ? '+' : '';
-    
-    message = `${symbol} ${direction} $${thresholdValue.toFixed(2)} ($${previousPrice.toFixed(2)} → $${currentPrice.toFixed(2)}, ${changeSign}${changePercent}%)`;
+  
+  if (alertType === 'percentage_move') {
+    // Handle percentage move alerts
+    const dailyOpenPrice = await getDailyOpenPrice(symbol);
+    if (dailyOpenPrice !== null) {
+      const currentPercentChange = ((currentPrice - dailyOpenPrice) / dailyOpenPrice) * 100;
+      const previousPercentChange = previousPrice ? ((previousPrice - dailyOpenPrice) / dailyOpenPrice) * 100 : 0;
+      
+      const direction = currentPercentChange > previousPercentChange ? 'rose' : 'fell';
+      const changeSign = currentPercentChange >= 0 ? '+' : '';
+      
+      message = `${symbol} ${direction} ${changeSign}${currentPercentChange.toFixed(2)}% from daily open ($${dailyOpenPrice.toFixed(2)} → $${currentPrice.toFixed(2)}, threshold: ${thresholdValue}%)`;
+    } else {
+      // Fallback if no daily open price
+      message = `${symbol} percentage move alert triggered (current: $${currentPrice.toFixed(2)}, threshold: ${thresholdValue}%)`;
+    }
   } else {
-    // Fallback for first-time alerts
-    message = `${symbol} ${alertType === 'price_above' ? 'rose above' : 'fell below'} $${thresholdValue.toFixed(2)} (current: $${currentPrice.toFixed(2)})`;
+    // Handle price above/below alerts
+    if (previousPrice !== null) {
+      const direction = alertType === 'price_above' ? 'rose above' : 'fell below';
+      const change = currentPrice - previousPrice;
+      const changePercent = ((change / previousPrice) * 100).toFixed(2);
+      const changeSign = change >= 0 ? '+' : '';
+      
+      message = `${symbol} ${direction} $${thresholdValue.toFixed(2)} ($${previousPrice.toFixed(2)} → $${currentPrice.toFixed(2)}, ${changeSign}${changePercent}%)`;
+    } else {
+      // Fallback for first-time alerts
+      message = `${symbol} ${alertType === 'price_above' ? 'rose above' : 'fell below'} $${thresholdValue.toFixed(2)} (current: $${currentPrice.toFixed(2)})`;
+    }
   }
   
   await client.execute({
@@ -300,4 +315,99 @@ async function storePriceHistory(symbol: string, price: number): Promise<void> {
     console.error(`Error storing price history for ${symbol}:`, error);
     // Don't throw - we don't want price storage errors to break the alert system
   }
+}
+
+// Helper function to store daily open price if it's the first price of the day
+async function storeDailyOpenPrice(symbol: string, price: number): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Check if we already have an open price for today
+    const existingEntry = await client.execute({
+      sql: `
+        SELECT COUNT(*) as count 
+        FROM daily_open_prices 
+        WHERE symbol = ? AND date = ?
+      `,
+      args: [symbol, today]
+    });
+    
+    // Only insert if we don't have an entry for today
+    if (existingEntry.rows[0]?.count === 0) {
+      const openPriceId = uuidv4();
+      await client.execute({
+        sql: `
+          INSERT INTO daily_open_prices (id, symbol, date, open_price)
+          VALUES (?, ?, ?, ?)
+        `,
+        args: [openPriceId, symbol, today, price]
+      });
+      console.log(`Stored daily open price for ${symbol}: $${price.toFixed(2)} on ${today}`);
+    }
+  } catch (error) {
+    console.error(`Error storing daily open price for ${symbol}:`, error);
+    // Don't throw - we don't want price storage errors to break the alert system
+  }
+}
+
+// Helper function to get today's open price for a symbol
+async function getDailyOpenPrice(symbol: string): Promise<number | null> {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    const result = await client.execute({
+      sql: `
+        SELECT open_price 
+        FROM daily_open_prices 
+        WHERE symbol = ? AND date = ?
+      `,
+      args: [symbol, today]
+    });
+    
+    return result.rows.length > 0 ? Number(result.rows[0].open_price) : null;
+  } catch (error) {
+    console.error(`Error getting daily open price for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Helper function to check percentage move alert conditions
+async function checkPercentageMoveAlert(alert: any, currentPrice: number, previousPrice: number | null): Promise<boolean> {
+  const symbol = String(alert.symbol);
+  const thresholdPercent = Number(alert.threshold_value);
+  
+  // Get today's open price
+  const dailyOpenPrice = await getDailyOpenPrice(symbol);
+  if (dailyOpenPrice === null) {
+    console.log(`No daily open price available for ${symbol}, skipping percentage alert`);
+    return false;
+  }
+  
+  // Calculate current percentage change from open
+  const currentPercentChange = ((currentPrice - dailyOpenPrice) / dailyOpenPrice) * 100;
+  
+  // We need a previous percentage to detect a cross
+  if (previousPrice === null) {
+    console.log(`No previous price available for ${symbol}, skipping percentage cross-detection`);
+    return false;
+  }
+  
+  // Calculate previous percentage change from open
+  const previousPercentChange = ((previousPrice - dailyOpenPrice) / dailyOpenPrice) * 100;
+  
+  // Check if we're crossing the threshold in either direction
+  // For positive threshold: trigger when crossing from below threshold to above threshold
+  // For negative threshold: trigger when crossing from above threshold to below threshold
+  const thresholdValue = thresholdPercent; // This is the percentage threshold
+  
+  // Determine if we crossed the threshold
+  const crossedAbove = previousPercentChange <= thresholdValue && currentPercentChange > thresholdValue;
+  const crossedBelow = previousPercentChange >= thresholdValue && currentPercentChange < thresholdValue;
+  
+  if (crossedAbove || crossedBelow) {
+    console.log(`Percentage alert crossed for ${symbol}: ${previousPercentChange.toFixed(2)}% → ${currentPercentChange.toFixed(2)}% (threshold: ${thresholdValue}%)`);
+    return true;
+  }
+  
+  return false;
 }

@@ -102,6 +102,18 @@ export async function initializeDatabase() {
       )
     `);
 
+    // Create daily_open_prices table for percentage alerts
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS daily_open_prices (
+        id TEXT PRIMARY KEY,
+        symbol TEXT NOT NULL,
+        date DATE NOT NULL,
+        open_price REAL NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(symbol, date)
+      )
+    `);
+
     // Create indexes
     await client.execute(`
       CREATE INDEX IF NOT EXISTS idx_available_assets_symbol ON available_assets(symbol)
@@ -136,6 +148,17 @@ export async function initializeDatabase() {
     `);
     await client.execute(`
       CREATE INDEX IF NOT EXISTS idx_price_history_symbol_timestamp ON price_history(symbol, timestamp)
+    `);
+    
+    // Create indexes for daily_open_prices table
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_daily_open_prices_symbol ON daily_open_prices(symbol)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_daily_open_prices_date ON daily_open_prices(date)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS idx_daily_open_prices_symbol_date ON daily_open_prices(symbol, date)
     `);
 
     console.log('Database initialized successfully');

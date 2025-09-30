@@ -247,7 +247,12 @@ export default function NotificationsPage() {
                             {notification.symbol}
                           </span>
                           <span className="text-muted-foreground">
-                            {notification.alert_type === 'price_above' ? 'Above' : 'Below'} ${notification.threshold_value?.toFixed(2)}
+                            {notification.alert_type === 'price_above' 
+                              ? `Above $${notification.threshold_value?.toFixed(2)}` 
+                              : notification.alert_type === 'price_below'
+                              ? `Below $${notification.threshold_value?.toFixed(2)}`
+                              : `Move ${notification.threshold_value}%`
+                            }
                           </span>
                         </div>
                       </div>

@@ -25,7 +25,7 @@ export function AssetCard({ asset, onClick }: AssetCardProps) {
       className="cursor-pointer hover:shadow-md transition-shadow h-full py-1.5 px-2"
       onClick={onClick}
     >
-      <CardContent className="p-3 h-full flex flex-col">
+      <CardContent className="p-1.5 h-full flex flex-col">
         {/* Header with symbol and price */}
         <div className="flex items-start justify-between mb-2 min-h-[2.5rem]">
           <div className="flex-1 min-w-0 pr-2">
