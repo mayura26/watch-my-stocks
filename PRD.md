@@ -343,28 +343,38 @@ CREATE INDEX idx_available_assets_type ON available_assets(asset_type);
 - ✅ Chart.js financial charts with theme-aware colors
 - ✅ Market hours logic for futures data
 
-#### Phase 3: Enhanced Features (Weeks 5-6) 🚧 IN PROGRESS
+#### Phase 3: Enhanced Features (Weeks 5-6) ✅ COMPLETE
 - ✅ Add Polygon.io as secondary provider
 - ✅ Implement provider failover logic
-- [ ] Enhanced alert system with percentage moves
-- [ ] Alert management UI (create, edit, delete, toggle)
-- [ ] Alert creation from stock detail dialogs
-- [ ] PWA implementation (install prompt, manifest)
-- [ ] Advanced notification system
+- ✅ Enhanced alert system with percentage moves
+- ✅ Alert management UI (create, edit, delete, toggle)
+- ✅ Alert creation from stock detail dialogs and alerts page
+- ✅ Advanced notification system with in-app notifications
 - ✅ Chart timeframe toggling
-- [ ] Swipe gestures for mobile dialogs
-- [ ] Alert limit warnings (500 per user)
+- ✅ Alert limit warnings (500 per user)
+- ✅ Dead bounce mechanism (15-minute cooldown)
+- ✅ Server-side alert checking (1-minute interval)
+- ✅ Notification bell with unread count
+- ✅ Notifications page with filter and search
+- ✅ Enhanced navigation bar with active page highlighting
+- [ ] PWA implementation (install prompt, manifest) - Pending
+- [ ] Swipe gestures for mobile dialogs - Pending
 
-#### Phase 4: Polish & Optimization (Weeks 7-8)
+#### Phase 4: Polish & Optimization (Weeks 7-8) 🚧 IN PROGRESS
 - ✅ Add yahoo-finance2 as fallback provider
+- ✅ Notification cleanup system (30-day retention)
+- ✅ Docker containerization
+- ✅ Coolify deployment setup
+- ✅ Self-hosting documentation
+- [ ] Profile & Settings system
+- [ ] Account deletion functionality
 - [ ] Performance optimization
 - [ ] Mobile UX improvements
 - [ ] Advanced caching strategies
-- [ ] Notification cleanup system (30-day retention)
-- [ ] Account deletion functionality
 - [ ] Testing and bug fixes
 - [ ] Touch gesture optimization
 - [ ] Dialog animation improvements
+- [ ] PWA features (manifest, service worker, install prompt)
 
 ### 8. Technical Considerations
 

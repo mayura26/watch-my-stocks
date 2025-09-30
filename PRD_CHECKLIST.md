@@ -28,7 +28,7 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 
 ### 4. Alert System
 - [x] **Price threshold alerts (above/below)** - ✅ Complete
-- [x] **Percentage move alerts** - ✅ Complete (UI ready, logic pending)
+- [x] **Percentage move alerts** - ✅ Complete
 - [x] **Alert creation modal** - ✅ Complete
 - [x] **Alert editing (thresholds only)** - ✅ Complete
 - [x] **Alert enable/disable toggle** - ✅ Complete
@@ -37,20 +37,26 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 - [x] **Dead bounce mechanism (15min cooldown)** - ✅ Complete
 
 ### 5. Notification System
-- [x] **Server-side alert checking (cron job)** - ✅ Complete
+- [x] **Server-side alert checking (1-minute interval)** - ✅ Complete
 - [x] **In-app notifications** - ✅ Complete
-- [ ] **Notification permissions request** - ⏳ Pending (browser notifications)
+- [x] **Notification bell with unread count** - ✅ Complete
+- [x] **Notifications page** - ✅ Complete
 - [x] **Last 50 notifications display** - ✅ Complete
 - [x] **30-day notification cleanup** - ✅ Complete
 - [x] **Notification read/unread status** - ✅ Complete
+- [x] **Mark all as read functionality** - ✅ Complete
+- [ ] **Browser notification permissions** - ⏳ Pending (PWA feature)
 
-### 6. Alerts Page
+### 6. Alerts & Notifications Pages
 - [x] **Alerts management page** - ✅ Complete
 - [x] **Active alerts list** - ✅ Complete
-- [x] **Notification history** - ✅ Complete
-- [ ] **Alert editing interface** - ⏳ Pending
-- [ ] **Alert creation from alerts page** - ⏳ Pending
-- [ ] **Portfolio stock selection for alerts** - ⏳ Pending
+- [x] **Alert editing interface** - ✅ Complete
+- [x] **Alert creation from alerts page** - ✅ Complete
+- [x] **Alert creation from asset detail dialog** - ✅ Complete
+- [x] **Portfolio stock selection for alerts** - ✅ Complete
+- [x] **Notifications management page** - ✅ Complete
+- [x] **Notification history display** - ✅ Complete
+- [x] **Filter and search notifications** - ✅ Complete
 
 ### 7. User Authentication
 - [x] **Email and password authentication** - ✅ Complete
@@ -100,16 +106,20 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 - [x] **Available_assets table** - ✅ Complete
 
 ### 13. Docker & Deployment
-- [ ] **Docker containerization** - ⏳ Pending
-- [ ] **Cron job containers** - ⏳ Pending
-- [ ] **Environment configuration** - ⏳ Pending
-- [ ] **Production deployment** - ⏳ Pending
+- [x] **Docker containerization** - ✅ Complete
+- [x] **Dockerfile configuration** - ✅ Complete
+- [x] **Coolify deployment setup** - ✅ Complete
+- [x] **Scheduled tasks configuration** - ✅ Complete
+- [x] **Alert checking automation** - ✅ Complete
+- [x] **Environment configuration** - ✅ Complete
+- [x] **Self-hosting documentation** - ✅ Complete
+- [ ] **Production deployment (actual)** - ⏳ Pending
 
 ---
 
 ## 📊 **PROGRESS SUMMARY**
 
-### ✅ **COMPLETED (50%)**
+### ✅ **COMPLETED (70%)**
 - Authentication system
 - Basic layout and navigation
 - Theme system
@@ -122,28 +132,33 @@ This document provides a detailed checklist mapping each PRD requirement to impl
 - Multi-provider data integration (Finnhub, Polygon.io, Yahoo Finance)
 - Chart.js financial charts with theme support
 - Historical data API with market hours logic
+- Alert system (creation, editing, deletion, enable/disable)
+- Notification system (in-app, bell, notifications page)
+- Alert checking automation (server-side cron)
+- Docker containerization
+- Coolify deployment setup
+- Self-hosting documentation
 
 ### 🚧 **IN PROGRESS (0%)**
 - None currently
 
-### ⏳ **PENDING (50%)**
-- Alert system
-- Notification system
-- PWA features
-- Profile and settings
-- Docker deployment
+### ⏳ **PENDING (30%)**
+- Profile and settings system
+- PWA features (manifest, service worker, install prompt)
+- Browser push notifications
+- Account deletion functionality
 
 ---
 
 ## 🎯 **NEXT ITERATION FOCUS**
 
-**Iteration 4: Alert System**
-1. Price threshold alerts (above/below)
-2. Alert creation and management interface
-3. Alert enable/disable functionality
-4. Alert deletion and editing
-5. 500 alerts per user limit implementation
-6. Dead bounce mechanism (15min cooldown)
+**Iteration 5: Profile & Settings System**
+1. Profile settings page/modal
+2. Edit user information (name, email)
+3. Notification preferences toggle
+4. Theme preference management (already implemented)
+5. Account deletion with password confirmation
+6. Data cleanup on account deletion
 
 ---
 
