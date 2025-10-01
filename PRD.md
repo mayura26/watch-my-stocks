@@ -366,8 +366,8 @@ CREATE INDEX idx_available_assets_type ON available_assets(asset_type);
 - ✅ Docker containerization
 - ✅ Coolify deployment setup
 - ✅ Self-hosting documentation
-- [ ] Profile & Settings system
-- [ ] Account deletion functionality
+- ✅ Profile & Settings system
+- ✅ Account deletion functionality
 - [ ] Performance optimization
 - [ ] Mobile UX improvements
 - [ ] Advanced caching strategies
