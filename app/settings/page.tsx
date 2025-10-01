@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { NotificationPermission } from '@/components/notification-permission';
 
 interface UserSettings {
   firstName: string;
@@ -389,6 +390,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Browser Notifications */}
+          <NotificationPermission />
 
           {/* Security */}
           <Card>
