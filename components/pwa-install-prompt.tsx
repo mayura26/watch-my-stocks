@@ -14,8 +14,17 @@ export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Check if device is mobile
+    const checkIfMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isSmallScreen = window.innerWidth <= 768; // Mobile breakpoint
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
     // Check if app is already installed
     const checkIfInstalled = () => {
       if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -30,6 +39,7 @@ export function PWAInstallPrompt() {
       }
     };
 
+    checkIfMobile();
     checkIfInstalled();
 
     // Listen for the beforeinstallprompt event
@@ -37,10 +47,17 @@ export function PWAInstallPrompt() {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       
-      // Show prompt after a delay
-      setTimeout(() => {
-        setShowPrompt(true);
-      }, 3000); // Show after 3 seconds
+      // Only show prompt on mobile devices
+      if (isMobile) {
+        setTimeout(() => {
+          setShowPrompt(true);
+        }, 3000); // Show after 3 seconds
+      }
+    };
+
+    // Handle window resize to update mobile detection
+    const handleResize = () => {
+      checkIfMobile();
     };
 
     // Listen for app installed event
@@ -52,12 +69,14 @@ export function PWAInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('resize', handleResize);
     };
-  }, []);
+  }, [isMobile]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
@@ -83,8 +102,8 @@ export function PWAInstallPrompt() {
 
 
 
-  // Don't show if already installed or dismissed
-  if (isInstalled || !showPrompt || !deferredPrompt) {
+  // Don't show if not mobile, already installed, or dismissed
+  if (!isMobile || isInstalled || !showPrompt || !deferredPrompt) {
     return null;
   }
 
@@ -94,7 +113,7 @@ export function PWAInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:max-w-sm">
+    <div className="fixed bottom-4 left-4 right-4 z-50">
       <Card className="border-primary/20 bg-background/95 backdrop-blur-sm shadow-lg">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

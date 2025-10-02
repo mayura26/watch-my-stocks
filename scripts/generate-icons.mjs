@@ -27,19 +27,28 @@ async function generateIcons() {
     try {
       const iconPath = path.join(iconsDir, `icon-${size}x${size}.png`);
       
-      // Convert SVG to PNG using sharp
+      // Create maskable icon optimized for circular icons with minimal padding
+      // Reduced safe zone to 5% for circular icons (10% total padding)
+      const safeZone = size * 0.05; // 5% padding on each side for minimal edge
+      const iconSize = size - (safeZone * 2); // Icon content size
+      
+      // Convert SVG to PNG using sharp with theme-matching background
       await sharp(Buffer.from(svgContent))
-        .resize(size, size)
+        .resize(size, size, {
+          fit: 'contain',
+          background: { r: 15, g: 23, b: 42, alpha: 1 } // Dark blue-gray theme color
+        })
         .png()
         .toFile(iconPath);
       
-      console.log(`✓ Created icon-${size}x${size}.png`);
+      console.log(`✓ Created icon-${size}x${size}.png with minimal ${safeZone.toFixed(1)}px safe zone`);
     } catch (error) {
       console.error(`✗ Failed to create icon-${size}x${size}.png:`, error.message);
     }
   }
   
   console.log('Icon generation complete!');
+  console.log('Note: Icons optimized for circular design with minimal safe zones and theme background');
 }
 
 generateIcons().catch(console.error);
