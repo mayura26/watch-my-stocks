@@ -48,14 +48,14 @@ export async function POST(request: NextRequest) {
     // Send push notification to all subscriptions for this user
     for (const row of subscriptionsResult.rows) {
       try {
-        const subscription = JSON.parse(row.subscription_data);
+        const subscription = JSON.parse(String(row.subscription_data));
         
-        const result = await webpush.sendNotification(subscription, payload);
+        await webpush.sendNotification(subscription, payload);
         results.push({ subscription: subscription.endpoint, status: 'sent' });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error sending push notification:', error);
         errors.push({ 
-          subscription: JSON.parse(row.subscription_data).endpoint, 
+          subscription: JSON.parse(String(row.subscription_data)).endpoint, 
           error: error.message 
         });
         
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         if (error.statusCode === 410) {
           await client.execute({
             sql: 'DELETE FROM push_subscriptions WHERE user_id = ? AND subscription_data LIKE ?',
-            args: [userId, `%"${JSON.parse(row.subscription_data).endpoint}"%`]
+            args: [userId, `%"${JSON.parse(String(row.subscription_data)).endpoint}"%`]
           });
         }
       }
