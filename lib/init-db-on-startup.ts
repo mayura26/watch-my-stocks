@@ -52,6 +52,7 @@ export async function ensureDatabaseInitialized() {
           is_active BOOLEAN DEFAULT TRUE,
           is_enabled BOOLEAN DEFAULT TRUE,
           last_triggered DATETIME,
+          last_triggered_price REAL,
           trigger_count INTEGER DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

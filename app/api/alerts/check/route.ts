@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
           await storeDailyOpenPrice(symbol, currentPrice);
           
           // Process all alerts for this symbol
+          let updatedPreviousPrice = previousPrice; // Track price updates for subsequent alerts
+          
           for (const alert of symbolAlerts) {
             checkedCount++;
             
@@ -103,17 +105,44 @@ export async function POST(request: NextRequest) {
               continue;
             }
             
-            const shouldTrigger = await checkAlertCondition(alert, currentPrice, previousPrice);
+            // For price above/below alerts, use the last triggered price as baseline if available
+            // This prevents the same alert from triggering multiple times with the same old price
+            let baselinePrice = updatedPreviousPrice;
+            if (alert.alert_type === 'price_above' || alert.alert_type === 'price_below') {
+              const lastTriggeredPrice = await getLastTriggeredPrice(String(alert.id));
+              if (lastTriggeredPrice !== null) {
+                baselinePrice = lastTriggeredPrice;
+                console.log(`Using last triggered price as baseline for alert ${alert.id}: ${baselinePrice}`);
+              }
+            }
+            
+            const shouldTrigger = await checkAlertCondition(alert, currentPrice, baselinePrice);
+            
+            // Add detailed logging to understand what's happening
+            console.log(`Checking alert ${alert.id} for ${alert.symbol}: baseline=${baselinePrice}, current=${currentPrice}, threshold=${thresholdValue}, shouldTrigger=${shouldTrigger}`);
             
             if (shouldTrigger) {
               // Check if we should trigger (dead bounce mechanism)
               const shouldCreateNotification = await shouldTriggerNotification(String(alert.id));
               
+              console.log(`Alert ${alert.id} condition met, dead bounce check: ${shouldCreateNotification}`);
+              
               if (shouldCreateNotification) {
-                await createNotification(alert, currentPrice, previousPrice);
-                await updateAlertTrigger(String(alert.id));
+                await createNotification(alert, currentPrice, baselinePrice);
+                await updateAlertTrigger(String(alert.id), currentPrice);
                 triggeredCount++;
-                console.log(`Alert triggered for ${alert.symbol}: ${alert.alert_type} ${thresholdValue} (crossed from ${previousPrice} to ${currentPrice})`);
+                console.log(`Alert triggered for ${alert.symbol}: ${alert.alert_type} ${thresholdValue} (crossed from ${baselinePrice} to ${currentPrice})`);
+                
+                // Update the previous price reference for subsequent alerts in this batch
+                // This ensures that if multiple alerts trigger for the same symbol, 
+                // each subsequent alert uses the current price as the new baseline
+                updatedPreviousPrice = currentPrice;
+                
+                // Also update the price history to ensure the next alert check cycle
+                // uses the current price as the baseline for cross-detection
+                await updatePriceHistoryAfterAlert(symbol, currentPrice);
+              } else {
+                console.log(`Alert ${alert.id} blocked by dead bounce mechanism (triggered within last 15 minutes)`);
               }
             }
           }
@@ -250,16 +279,17 @@ async function createNotification(alert: any, currentPrice: number, previousPric
   });
 }
 
-async function updateAlertTrigger(alertId: string): Promise<void> {
+async function updateAlertTrigger(alertId: string, triggeredPrice: number): Promise<void> {
   await client.execute({
     sql: `
       UPDATE alerts 
       SET 
         last_triggered = datetime('now'),
-        trigger_count = trigger_count + 1
+        trigger_count = trigger_count + 1,
+        last_triggered_price = ?
       WHERE id = ?
     `,
-    args: [alertId]
+    args: [triggeredPrice, alertId]
   });
 }
 
@@ -280,6 +310,25 @@ async function getPreviousPrice(symbol: string): Promise<number | null> {
     return result.rows.length > 0 ? Number(result.rows[0].price) : null;
   } catch (error) {
     console.error(`Error getting previous price for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Helper function to get the last triggered price for an alert
+async function getLastTriggeredPrice(alertId: string): Promise<number | null> {
+  try {
+    const result = await client.execute({
+      sql: `
+        SELECT last_triggered_price 
+        FROM alerts 
+        WHERE id = ? AND last_triggered_price IS NOT NULL
+      `,
+      args: [alertId]
+    });
+    
+    return result.rows.length > 0 ? Number(result.rows[0].last_triggered_price) : null;
+  } catch (error) {
+    console.error(`Error getting last triggered price for alert ${alertId}:`, error);
     return null;
   }
 }
@@ -410,4 +459,28 @@ async function checkPercentageMoveAlert(alert: any, currentPrice: number, previo
   }
   
   return false;
+}
+
+// Helper function to update price history after an alert triggers
+// This ensures the next alert check cycle uses the current price as baseline
+async function updatePriceHistoryAfterAlert(symbol: string, price: number): Promise<void> {
+  try {
+    const now = new Date().toISOString();
+    const priceId = uuidv4();
+    
+    // Insert a new price entry with a slightly later timestamp to ensure
+    // it becomes the "previous price" for the next alert check cycle
+    await client.execute({
+      sql: `
+        INSERT INTO price_history (id, symbol, price, timestamp)
+        VALUES (?, ?, ?, ?)
+      `,
+      args: [priceId, symbol, price, now]
+    });
+    
+    console.log(`Updated price history after alert for ${symbol}: $${price.toFixed(2)}`);
+  } catch (error) {
+    console.error(`Error updating price history after alert for ${symbol}:`, error);
+    // Don't throw - we don't want price storage errors to break the alert system
+  }
 }
