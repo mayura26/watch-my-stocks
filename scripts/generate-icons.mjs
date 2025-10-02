@@ -30,7 +30,6 @@ async function generateIcons() {
       // Create maskable icon optimized for circular icons with minimal padding
       // Reduced safe zone to 5% for circular icons (10% total padding)
       const safeZone = size * 0.05; // 5% padding on each side for minimal edge
-      const iconSize = size - (safeZone * 2); // Icon content size
       
       // Convert SVG to PNG using sharp with theme-matching background
       await sharp(Buffer.from(svgContent))
