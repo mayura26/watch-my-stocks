@@ -4,6 +4,13 @@ This document tracks optional features and potential enhancements for the WatchM
 
 ## 🚀 **High Priority Features**
 
+### Portfolio Organization & UX
+- [ ] **Grouping System** - Tabbed view on main page to organize assets into groups (All, Stocks, Crypto, Futures)
+- [ ] **Day/Week Range Markers** - Dashboard markers showing current price position relative to day and week ranges
+- [ ] **Progressive Loading** - Two-step loading: show last known price first, then smoothly update with fresh data
+- [ ] **Auto-Refresh Toggle** - Toggle to enable automatic refresh every minute
+- [ ] **Automatic Alerts** - Auto-generate alerts based on key levels for important stocks
+
 ### Performance & UX Improvements
 - [ ] **Virtual Scrolling** - Optimize large watchlists with virtual scrolling
 - [ ] **Touch Gestures** - Swipe to close dialogs, pull-to-refresh
@@ -108,31 +115,17 @@ This document tracks optional features and potential enhancements for the WatchM
 - [ ] **Custom Themes** - User-defined color schemes
 - [ ] **Layout Customization** - Drag-and-drop dashboard layout
 - [ ] **Widget System** - Customizable dashboard widgets
-- [ ] **API Access** - Public API for third-party integrations
-- [ ] **Webhooks** - Real-time data webhooks
 
 ### Automation
 - [ ] **Trading Bots** - Simple automated trading strategies
 - [ ] **Dollar-Cost Averaging** - Automated investment scheduling
 - [ ] **Rebalancing** - Automatic portfolio rebalancing
-- [ ] **Tax Loss Harvesting** - Automated tax optimization
 - [ ] **Smart Alerts** - AI-powered alert suggestions
 
 ## 🏢 **Enterprise Features**
 
-### Multi-User Support
-- [ ] **User Management** - Admin panel for user management
-- [ ] **Role-Based Access** - Different permission levels
-- [ ] **Team Workspaces** - Shared workspaces for teams
-- [ ] **Audit Logs** - Track all user actions
-- [ ] **Compliance** - Regulatory compliance features
-
 ### Integration
 - [ ] **Broker Integration** - Connect with trading accounts
-- [ ] **Bank Integration** - Connect with bank accounts
-- [ ] **Tax Software** - Export to TurboTax, H&R Block
-- [ ] **CRM Integration** - Connect with Salesforce, HubSpot
-- [ ] **Slack Integration** - Send alerts to Slack channels
 
 ## 🎯 **Implementation Priority**
 
