@@ -5,24 +5,57 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bell, BellOff, CheckCircle, XCircle } from 'lucide-react';
 import { notificationService } from '@/lib/notification-service';
+import { pushNotificationService } from '@/lib/push-notification-service';
 import { toast } from 'sonner';
 
 export function NotificationPermission() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isRequesting, setIsRequesting] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
 
   useEffect(() => {
     setPermission(notificationService.getPermissionStatus());
+    
+    // Check push notification support and subscription status
+    const checkPushSupport = async () => {
+      try {
+        const supported = await pushNotificationService.isSupported();
+        setPushSupported(supported);
+        
+        if (supported) {
+          const subscription = await pushNotificationService.getSubscription();
+          setPushSubscribed(!!subscription);
+        }
+      } catch (error) {
+        console.error('Error checking push support:', error);
+      }
+    };
+    
+    checkPushSupport();
   }, []);
 
   const handleRequestPermission = async () => {
     setIsRequesting(true);
     try {
+      // First request browser notification permission
       const granted = await notificationService.requestPermission();
       setPermission(notificationService.getPermissionStatus());
       
       if (granted) {
-        toast.success('Notification permissions granted!');
+        // If browser notifications are granted, also set up push notifications
+        if (pushSupported && !pushSubscribed) {
+          try {
+            await pushNotificationService.subscribe();
+            setPushSubscribed(true);
+            toast.success('Push notifications enabled! You will receive notifications even when the app is closed.');
+          } catch (pushError) {
+            console.error('Error setting up push notifications:', pushError);
+            toast.warning('Browser notifications enabled, but push notifications failed to set up.');
+          }
+        } else {
+          toast.success('Notification permissions granted!');
+        }
       } else {
         toast.error('Notification permissions denied. You can enable them in your browser settings.');
       }
@@ -34,13 +67,25 @@ export function NotificationPermission() {
     }
   };
 
+  const handleTestPushNotification = async () => {
+    try {
+      await pushNotificationService.sendTestNotification();
+      toast.success('Test push notification sent!');
+    } catch (error) {
+      console.error('Error sending test push notification:', error);
+      toast.error('Failed to send test push notification');
+    }
+  };
+
   const getPermissionStatus = () => {
     switch (permission) {
       case 'granted':
         return {
           icon: <CheckCircle className="w-5 h-5 text-green-600" />,
-          text: 'Notifications enabled',
-          description: 'You will receive browser notifications for alerts',
+          text: pushSubscribed ? 'Push notifications enabled' : 'Browser notifications enabled',
+          description: pushSubscribed 
+            ? 'You will receive push notifications even when the app is closed'
+            : 'You will receive browser notifications when the app is open',
           color: 'text-green-600'
         };
       case 'denied':
@@ -124,6 +169,38 @@ export function NotificationPermission() {
                 Enable Notifications
               </>
             )}
+          </Button>
+        )}
+
+        {permission === 'granted' && pushSupported && !pushSubscribed && (
+          <Button
+            onClick={handleRequestPermission}
+            disabled={isRequesting}
+            className="w-full"
+            variant="outline"
+          >
+            {isRequesting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                Setting up push notifications...
+              </>
+            ) : (
+              <>
+                <Bell className="w-4 h-4 mr-2" />
+                Enable Push Notifications
+              </>
+            )}
+          </Button>
+        )}
+
+        {permission === 'granted' && pushSubscribed && (
+          <Button
+            onClick={handleTestPushNotification}
+            className="w-full"
+            variant="outline"
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            Send Test Push Notification
           </Button>
         )}
 

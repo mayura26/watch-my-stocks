@@ -11,7 +11,7 @@ const STATIC_CACHE_URLS = [
   '/manifest.json'
 ];
 
-// Install event - cache static assets
+// Install event - cache static assets and set up push notifications
 self.addEventListener('install', (event) => {
   console.log('Service Worker: Installing...');
   event.waitUntil(
@@ -23,6 +23,17 @@ self.addEventListener('install', (event) => {
       .then(() => {
         console.log('Service Worker: Installation complete');
         return self.skipWaiting();
+      })
+      .then(() => {
+        // Set up push notifications after installation
+        return self.registration.pushManager.getSubscription();
+      })
+      .then((subscription) => {
+        if (!subscription) {
+          console.log('Service Worker: No push subscription found, will register when user grants permission');
+        } else {
+          console.log('Service Worker: Existing push subscription found');
+        }
       })
       .catch((error) => {
         console.error('Service Worker: Installation failed', error);

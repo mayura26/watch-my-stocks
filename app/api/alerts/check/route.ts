@@ -87,9 +87,6 @@ export async function POST(request: NextRequest) {
           // Get previous price for cross-detection (once per symbol)
           const previousPrice = await getPreviousPrice(symbol);
           
-          // Store current price for next check (once per symbol)
-          await storePriceHistory(symbol, currentPrice);
-          
           // Store daily open price if this is the first price of the day
           await storeDailyOpenPrice(symbol, currentPrice);
           
@@ -137,15 +134,14 @@ export async function POST(request: NextRequest) {
                 // This ensures that if multiple alerts trigger for the same symbol, 
                 // each subsequent alert uses the current price as the new baseline
                 updatedPreviousPrice = currentPrice;
-                
-                // Also update the price history to ensure the next alert check cycle
-                // uses the current price as the baseline for cross-detection
-                await updatePriceHistoryAfterAlert(symbol, currentPrice);
               } else {
                 console.log(`Alert ${alert.id} blocked by dead bounce mechanism (triggered within last 15 minutes)`);
               }
             }
           }
+          
+          // Store current price for next check (AFTER all alerts are processed)
+          await storePriceHistory(symbol, currentPrice);
         }
       
         // Small delay between batches to be respectful to APIs
@@ -213,18 +209,19 @@ async function checkAlertCondition(alert: any, currentPrice: number, previousPri
 
 async function shouldTriggerNotification(alertId: string): Promise<boolean> {
   // Dead bounce mechanism: Check if alert was triggered in the last 15 minutes
+  // Use the alert's last_triggered timestamp instead of notification creation time
   const recentTrigger = await client.execute({
     sql: `
-      SELECT COUNT(*) as count
-      FROM notifications n
-      JOIN alerts a ON n.alert_id = a.id
-      WHERE a.id = ? 
-      AND n.created_at > datetime('now', '-15 minutes')
+      SELECT last_triggered
+      FROM alerts
+      WHERE id = ? 
+      AND last_triggered > datetime('now', '-15 minutes')
     `,
     args: [alertId]
   });
   
-  return recentTrigger.rows[0]?.count === 0;
+  // If we found a recent trigger, don't send another notification
+  return recentTrigger.rows.length === 0;
 }
 
 async function createNotification(alert: any, currentPrice: number, previousPrice: number | null): Promise<void> {
@@ -270,6 +267,7 @@ async function createNotification(alert: any, currentPrice: number, previousPric
     }
   }
   
+  // Store notification in database
   await client.execute({
     sql: `
       INSERT INTO notifications (id, user_id, alert_id, title, message, notification_type)
@@ -277,6 +275,32 @@ async function createNotification(alert: any, currentPrice: number, previousPric
     `,
     args: [notificationId, userId, alertId, title, message, 'price_alert']
   });
+
+  // Send push notification
+  try {
+    const pushResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/push/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        title,
+        body: message,
+        url: '/notifications',
+        alertId
+      })
+    });
+
+    if (!pushResponse.ok) {
+      console.error('Failed to send push notification:', await pushResponse.text());
+    } else {
+      console.log(`Push notification sent for alert ${alertId}`);
+    }
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+    // Don't throw - we don't want push notification errors to break the alert system
+  }
 }
 
 async function updateAlertTrigger(alertId: string, triggeredPrice: number): Promise<void> {
@@ -444,43 +468,21 @@ async function checkPercentageMoveAlert(alert: any, currentPrice: number, previo
   // Calculate previous percentage change from open
   const previousPercentChange = ((previousPrice - dailyOpenPrice) / dailyOpenPrice) * 100;
   
-  // Check if we're crossing the threshold in either direction
-  // For positive threshold: trigger when crossing from below threshold to above threshold
-  // For negative threshold: trigger when crossing from above threshold to below threshold
-  const thresholdValue = thresholdPercent; // This is the percentage threshold
+  // For percentage alerts, we need to check if we're crossing the threshold in EITHER direction
+  // Trigger when crossing from below threshold to above threshold OR from above threshold to below threshold
+  // But we need to use the ABSOLUTE value of the threshold for both directions
   
-  // Determine if we crossed the threshold
-  const crossedAbove = previousPercentChange <= thresholdValue && currentPercentChange > thresholdValue;
-  const crossedBelow = previousPercentChange >= thresholdValue && currentPercentChange < thresholdValue;
+  const absThreshold = Math.abs(thresholdPercent);
+  
+  // Check if we crossed the threshold in either direction
+  const crossedAbove = Math.abs(previousPercentChange) <= absThreshold && Math.abs(currentPercentChange) > absThreshold;
+  const crossedBelow = Math.abs(previousPercentChange) > absThreshold && Math.abs(currentPercentChange) <= absThreshold;
   
   if (crossedAbove || crossedBelow) {
-    console.log(`Percentage alert crossed for ${symbol}: ${previousPercentChange.toFixed(2)}% → ${currentPercentChange.toFixed(2)}% (threshold: ${thresholdValue}%)`);
+    console.log(`Percentage alert crossed for ${symbol}: ${previousPercentChange.toFixed(2)}% → ${currentPercentChange.toFixed(2)}% (threshold: ±${absThreshold}%)`);
     return true;
   }
   
   return false;
 }
 
-// Helper function to update price history after an alert triggers
-// This ensures the next alert check cycle uses the current price as baseline
-async function updatePriceHistoryAfterAlert(symbol: string, price: number): Promise<void> {
-  try {
-    const now = new Date().toISOString();
-    const priceId = uuidv4();
-    
-    // Insert a new price entry with a slightly later timestamp to ensure
-    // it becomes the "previous price" for the next alert check cycle
-    await client.execute({
-      sql: `
-        INSERT INTO price_history (id, symbol, price, timestamp)
-        VALUES (?, ?, ?, ?)
-      `,
-      args: [priceId, symbol, price, now]
-    });
-    
-    console.log(`Updated price history after alert for ${symbol}: $${price.toFixed(2)}`);
-  } catch (error) {
-    console.error(`Error updating price history after alert for ${symbol}:`, error);
-    // Don't throw - we don't want price storage errors to break the alert system
-  }
-}
