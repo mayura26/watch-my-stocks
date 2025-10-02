@@ -112,6 +112,19 @@ export async function ensureDatabaseInitialized() {
         )
       `);
 
+      // Create push_subscriptions table
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          endpoint TEXT NOT NULL,
+          subscription_data TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+
       // Create indexes
       await client.execute(`
         CREATE INDEX IF NOT EXISTS idx_available_assets_symbol ON available_assets(symbol)
@@ -157,6 +170,14 @@ export async function ensureDatabaseInitialized() {
       `);
       await client.execute(`
         CREATE INDEX IF NOT EXISTS idx_daily_open_prices_symbol_date ON daily_open_prices(symbol, date)
+      `);
+
+      // Create indexes for push_subscriptions table
+      await client.execute(`
+        CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id)
+      `);
+      await client.execute(`
+        CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)
       `);
 
       isInitialized = true;

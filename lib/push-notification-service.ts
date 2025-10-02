@@ -118,13 +118,18 @@ class PushNotificationService {
 
   private async saveSubscription(subscription: PushSubscription): Promise<void> {
     try {
+      // Generate device name from user agent
+      const deviceName = this.generateDeviceName();
+      
       const response = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subscription: subscription.toJSON()
+          subscription: subscription.toJSON(),
+          deviceName,
+          userAgent: navigator.userAgent
         })
       });
 
@@ -136,6 +141,34 @@ class PushNotificationService {
       console.error('Error saving push subscription:', error);
       throw error;
     }
+  }
+
+  private generateDeviceName(): string {
+    const userAgent = navigator.userAgent;
+    
+    // Try to detect device type and browser
+    let deviceType = 'Unknown';
+    let browser = 'Unknown';
+    
+    if (userAgent.includes('Mobile')) {
+      deviceType = 'Mobile';
+    } else if (userAgent.includes('Tablet')) {
+      deviceType = 'Tablet';
+    } else {
+      deviceType = 'Desktop';
+    }
+    
+    if (userAgent.includes('Chrome')) {
+      browser = 'Chrome';
+    } else if (userAgent.includes('Firefox')) {
+      browser = 'Firefox';
+    } else if (userAgent.includes('Safari')) {
+      browser = 'Safari';
+    } else if (userAgent.includes('Edge')) {
+      browser = 'Edge';
+    }
+    
+    return `${deviceType} - ${browser}`;
   }
 
   private async removeSubscription(subscription: PushSubscription): Promise<void> {

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationPermission } from '@/components/notification-permission';
+import { PushSubscriptionManager } from '@/components/push-subscription-manager';
 
 interface UserSettings {
   firstName: string;
@@ -393,6 +394,9 @@ export default function SettingsPage() {
 
           {/* Browser Notifications */}
           <NotificationPermission />
+
+          {/* Push Subscription Management */}
+          <PushSubscriptionManager />
 
           {/* Security */}
           <Card>

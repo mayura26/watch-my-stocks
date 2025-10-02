@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { subscription } = await request.json();
+    const { subscription, deviceName, userAgent } = await request.json();
 
     if (!subscription) {
       return NextResponse.json(
@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Generate device name if not provided
+    const finalDeviceName = deviceName || 'Unknown Device';
 
     // Check if subscription already exists for this user
     const existingSubscription = await client.execute({
@@ -32,20 +35,20 @@ export async function POST(request: NextRequest) {
       await client.execute({
         sql: `
           UPDATE push_subscriptions 
-          SET subscription_data = ?, updated_at = CURRENT_TIMESTAMP
+          SET subscription_data = ?, device_name = ?, user_agent = ?, last_seen = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, is_active = TRUE
           WHERE user_id = ? AND endpoint = ?
         `,
-        args: [JSON.stringify(subscription), session.user.id, subscription.endpoint]
+        args: [JSON.stringify(subscription), finalDeviceName, userAgent || '', session.user.id, subscription.endpoint]
       });
     } else {
       // Create new subscription
       const subscriptionId = uuidv4();
       await client.execute({
         sql: `
-          INSERT INTO push_subscriptions (id, user_id, endpoint, subscription_data, created_at, updated_at)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          INSERT INTO push_subscriptions (id, user_id, endpoint, subscription_data, device_name, user_agent, last_seen, is_active, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `,
-        args: [subscriptionId, session.user.id, subscription.endpoint, JSON.stringify(subscription)]
+        args: [subscriptionId, session.user.id, subscription.endpoint, JSON.stringify(subscription), finalDeviceName, userAgent || '']
       });
     }
 
