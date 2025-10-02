@@ -175,33 +175,6 @@ class PushNotificationService {
     return outputArray;
   }
 
-  async sendTestNotification(): Promise<void> {
-    try {
-      const response = await fetch('/api/push/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: 'current', // This will be replaced with actual user ID
-          title: 'Test Push Notification',
-          body: 'This is a test push notification from WatchMyStocks!',
-          url: '/notifications',
-          alertId: 'test'
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to send test notification');
-      }
-
-      console.log('Test push notification sent successfully');
-    } catch (error) {
-      console.error('Error sending test push notification:', error);
-      throw error;
-    }
-  }
 }
 
 // Export singleton instance

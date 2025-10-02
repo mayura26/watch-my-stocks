@@ -67,15 +67,6 @@ export function NotificationPermission() {
     }
   };
 
-  const handleTestPushNotification = async () => {
-    try {
-      await pushNotificationService.sendTestNotification();
-      toast.success('Test push notification sent!');
-    } catch (error) {
-      console.error('Error sending test push notification:', error);
-      toast.error('Failed to send test push notification');
-    }
-  };
 
   const getPermissionStatus = () => {
     switch (permission) {
@@ -193,16 +184,6 @@ export function NotificationPermission() {
           </Button>
         )}
 
-        {permission === 'granted' && pushSubscribed && (
-          <Button
-            onClick={handleTestPushNotification}
-            className="w-full"
-            variant="outline"
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            Send Test Push Notification
-          </Button>
-        )}
 
         {permission === 'denied' && (
           <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">

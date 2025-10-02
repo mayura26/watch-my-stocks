@@ -1,6 +1,10 @@
 #!/usr/bin/env tsx
 
+import { config } from 'dotenv';
 import client from '../lib/db';
+
+// Load environment variables
+config();
 
 async function testPushNotification() {
   try {
