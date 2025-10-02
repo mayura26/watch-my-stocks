@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navigation } from '@/components/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,14 +13,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { 
   User, 
-  Mail, 
   Palette, 
-  Bell, 
   Shield, 
   Trash2, 
   Save, 
   AlertTriangle,
-  CheckCircle,
   Download,
   RefreshCw
 } from 'lucide-react';
@@ -36,7 +33,7 @@ interface UserSettings {
 }
 
 export default function SettingsPage() {
-  const { data: session, status, update } = useSession();
+  const { data: session, status } = useSession();
   const [settings, setSettings] = useState<UserSettings>({
     firstName: '',
     lastName: '',
@@ -44,7 +41,6 @@ export default function SettingsPage() {
     theme: 'auto',
     notificationsEnabled: true,
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -58,7 +54,7 @@ export default function SettingsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch fresh user data from database
-  const fetchUserSettings = async () => {
+  const fetchUserSettings = useCallback(async () => {
     if (!session?.user) return;
     
     setIsRefreshing(true);
@@ -90,13 +86,13 @@ export default function SettingsPage() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     if (session?.user) {
       fetchUserSettings();
     }
-  }, [session]);
+  }, [session, fetchUserSettings]);
 
   const handleSave = async () => {
     if (!session?.user) return;
@@ -113,7 +109,7 @@ export default function SettingsPage() {
       });
 
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         // console.log('Settings update response:', result);
         
         toast.success('Settings saved successfully');
@@ -136,6 +132,8 @@ export default function SettingsPage() {
   };
 
   const handleExportData = async () => {
+    if (typeof window === 'undefined') return;
+    
     try {
       const response = await fetch('/api/user/export');
       if (response.ok) {
@@ -217,7 +215,9 @@ export default function SettingsPage() {
 
       if (response.ok) {
         toast.success('Account deleted successfully');
-        window.location.href = '/auth/signin';
+        if (typeof window !== 'undefined') {
+          window.location.href = '/auth/signin';
+        }
       } else {
         const error = await response.json();
         toast.error(error.message || 'Failed to delete account');

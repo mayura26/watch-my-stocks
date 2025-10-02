@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import client from '@/lib/db';
-import bcrypt from 'bcryptjs';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -90,7 +90,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update user settings
-    const updateResult = await client.execute({
+    await client.execute({
       sql: `
         UPDATE users 
         SET first_name = ?, last_name = ?, email = ?, theme = ?, notifications_enabled = ?, updated_at = CURRENT_TIMESTAMP

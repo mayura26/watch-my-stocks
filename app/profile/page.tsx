@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { User, Mail, Calendar, Bell, Palette, Edit, RefreshCw } from 'lucide-react';
-import { format } from 'date-fns';
 import Link from 'next/link';
 
 interface UserProfile {
@@ -102,7 +101,7 @@ export default function ProfilePage() {
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => window.location.reload()}
+                onClick={() => typeof window !== 'undefined' && window.location.reload()}
                 className="flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />

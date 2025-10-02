@@ -16,11 +16,23 @@ class NotificationService {
   private isSupported: boolean = false;
 
   constructor() {
-    this.isSupported = 'Notification' in window;
-    this.permission = this.isSupported ? Notification.permission : 'denied';
+    if (typeof window !== 'undefined') {
+      this.isSupported = 'Notification' in window;
+      this.permission = this.isSupported ? Notification.permission : 'denied';
+    }
   }
 
   async requestPermission(): Promise<boolean> {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    // Initialize if not already done
+    if (!this.isSupported && 'Notification' in window) {
+      this.isSupported = true;
+      this.permission = Notification.permission;
+    }
+
     if (!this.isSupported) {
       console.warn('Notifications are not supported in this browser');
       return false;
@@ -41,6 +53,16 @@ class NotificationService {
   }
 
   async showNotification(data: NotificationData): Promise<void> {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Initialize if not already done
+    if (!this.isSupported && 'Notification' in window) {
+      this.isSupported = true;
+      this.permission = Notification.permission;
+    }
+
     if (!this.isSupported || this.permission !== 'granted') {
       console.warn('Cannot show notification: permission not granted or not supported');
       return;
@@ -56,7 +78,7 @@ class NotificationService {
         requireInteraction: data.requireInteraction || false,
         silent: data.silent || false,
         vibrate: [200, 100, 200],
-      });
+      } as NotificationOptions);
 
       // Auto-close after 5 seconds unless requireInteraction is true
       if (!data.requireInteraction) {
@@ -134,14 +156,44 @@ class NotificationService {
   }
 
   isPermissionGranted(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    // Initialize if not already done
+    if (!this.isSupported && 'Notification' in window) {
+      this.isSupported = true;
+      this.permission = Notification.permission;
+    }
+
     return this.permission === 'granted';
   }
 
   isSupportedBrowser(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    // Initialize if not already done
+    if (!this.isSupported && 'Notification' in window) {
+      this.isSupported = true;
+      this.permission = Notification.permission;
+    }
+
     return this.isSupported;
   }
 
   getPermissionStatus(): NotificationPermission {
+    if (typeof window === 'undefined') {
+      return 'denied';
+    }
+
+    // Initialize if not already done
+    if (!this.isSupported && 'Notification' in window) {
+      this.isSupported = true;
+      this.permission = Notification.permission;
+    }
+
     return this.permission;
   }
 }

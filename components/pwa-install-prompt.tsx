@@ -66,7 +66,7 @@ export function PWAInstallPrompt() {
 
     try {
       await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+      await deferredPrompt.userChoice;
       
       setDeferredPrompt(null);
       setShowPrompt(false);
