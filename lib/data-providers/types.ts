@@ -40,7 +40,7 @@ export interface DataProvider {
   searchAssets(query: string, assetType?: 'stock' | 'crypto' | 'future' | null): Promise<SearchResult[]>;
   getAssetQuote(symbol: string): Promise<QuoteData | null>;
   getAssetDetails(symbol: string): Promise<Asset | null>;
-  getHistoricalData?(symbol: string, timeframe: '15m' | '1d', coinId?: string): Promise<HistoricalData[]>;
+  getHistoricalData?(symbol: string, timeframe: '1h' | '1d' | '1M' | '1Y', coinId?: string): Promise<HistoricalData[]>;
   isHealthy(): Promise<boolean>;
   getAttribution?(): { text: string; logoUrl: string; linkUrl: string };
 }

@@ -233,45 +233,37 @@ export class YahooFinanceProvider implements DataProvider {
     }
   }
 
-  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+  async getHistoricalData(symbol: string, timeframe: '1h' | '1d' | '1M' | '1Y'): Promise<HistoricalData[]> {
     try {
       // Use yahoo-finance2 for real historical data
       const now = new Date();
       let period1: Date;
       let period2: Date = now;
+      let interval: string;
 
-      if (timeframe === '15m') {
-        // For 15m data, first get the most recent available data point, then work backwards
-        // This ensures we get the actual last available data point for futures
-        const recentResult = await yahooFinance.chart(symbol, {
-          period1: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // Last 2 days
-          period2: now,
-          interval: '15m'
-        });
-        
-        if (!recentResult || !recentResult.quotes || recentResult.quotes.length === 0) {
-          // Fallback to current time minus 8 hours
-          period1 = new Date(now.getTime() - 8 * 60 * 60 * 1000);
-          period2 = now;
-        } else {
-          // Find the most recent data point
-          const lastDataPoint = recentResult.quotes[recentResult.quotes.length - 1];
-          const lastAvailableTime = new Date(lastDataPoint.date);
-          
-          // Pull 8 hours of 15m data backwards from the last available data point
-          period1 = new Date(lastAvailableTime.getTime() - 8 * 60 * 60 * 1000); // 8 hours before last point
-          period2 = lastAvailableTime;
-        }
-      } else {
-        // For 1d data, use 30-day lookback
+      if (timeframe === '1h') {
+        // Last 1 hour, use 1m intervals for more granular data
+        period1 = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+        interval = '1m';
+      } else if (timeframe === '1d') {
+        // Last 1 day, use 15m intervals
+        period1 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+        interval = '15m';
+      } else if (timeframe === '1M') {
+        // Last 1 month (30 days), use 1d intervals
         period1 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        interval = '1d';
+      } else {
+        // Last 1 year (365 days), use 1d intervals
+        period1 = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        interval = '1d';
       }
       
       // Use chart() method for all timeframes since historical() is deprecated
       const result = await yahooFinance.chart(symbol, {
         period1,
         period2,
-        interval: timeframe === '15m' ? '15m' : '1d'
+        interval: interval as any
       });
 
       if (!result || !result.quotes || result.quotes.length === 0) {

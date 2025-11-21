@@ -65,7 +65,7 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
   const [dataError, setDataError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [timeframe, setTimeframe] = useState<'15m' | '1d'>('1d');
+  const [timeframe, setTimeframe] = useState<'1h' | '1d' | '1M' | '1Y'>('1d');
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const relativeTime = useDetailedRelativeTime(asset?.lastUpdated);
@@ -298,20 +298,23 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
               <div>
                 <h3 className="text-lg font-semibold">Price Charts</h3>
                 <p className="text-sm text-muted-foreground">
-                  {timeframe === '15m' ? 'Last 8 hours (15-minute intervals)' : 'Last 30 days (daily intervals)'}
+                  {timeframe === '1h' && 'Last 1 hour (1-minute intervals)'}
+                  {timeframe === '1d' && 'Last 1 day (15-minute intervals)'}
+                  {timeframe === '1M' && 'Last 1 month (daily intervals)'}
+                  {timeframe === '1Y' && 'Last 1 year (daily intervals)'}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant={timeframe === '15m' ? 'default' : 'outline'}
+                  variant={timeframe === '1h' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setTimeframe('15m')}
+                  onClick={() => setTimeframe('1h')}
                   disabled={isLoading}
                 >
-                  {isLoading && timeframe === '15m' ? (
+                  {isLoading && timeframe === '1h' ? (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                   ) : null}
-                  1D
+                  1H
                 </Button>
                 <Button
                   variant={timeframe === '1d' ? 'default' : 'outline'}
@@ -322,7 +325,29 @@ export function AssetDetailDialog({ isOpen, onClose, asset }: AssetDetailDialogP
                   {isLoading && timeframe === '1d' ? (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                   ) : null}
+                  1D
+                </Button>
+                <Button
+                  variant={timeframe === '1M' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeframe('1M')}
+                  disabled={isLoading}
+                >
+                  {isLoading && timeframe === '1M' ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : null}
                   1M
+                </Button>
+                <Button
+                  variant={timeframe === '1Y' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeframe('1Y')}
+                  disabled={isLoading}
+                >
+                  {isLoading && timeframe === '1Y' ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : null}
+                  1Y
                 </Button>
               </div>
             </div>

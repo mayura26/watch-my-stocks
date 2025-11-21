@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate timeframe
-    if (!['15m', '1d'].includes(timeframeParam)) {
+    if (!['1h', '1d', '1M', '1Y'].includes(timeframeParam)) {
       return NextResponse.json(
-        { error: 'Invalid timeframe. Must be 15m or 1d' },
+        { error: 'Invalid timeframe. Must be 1h, 1d, 1M, or 1Y' },
         { status: 400 }
       );
     }
 
-    const timeframe = timeframeParam as '15m' | '1d';
+    const timeframe = timeframeParam as '1h' | '1d' | '1M' | '1Y';
 
     // Get coin_id from database for crypto assets
     let coinId: string | undefined;

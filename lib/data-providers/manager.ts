@@ -254,7 +254,7 @@ export class DataManager {
     }
   }
 
-  async getHistoricalData(symbol: string, timeframe: '15m' | '1d', coinId?: string): Promise<HistoricalData[]> {
+  async getHistoricalData(symbol: string, timeframe: '1h' | '1d' | '1M' | '1Y', coinId?: string): Promise<HistoricalData[]> {
     this.ensureInitialized();
     
     if (this.providers.length === 0) {

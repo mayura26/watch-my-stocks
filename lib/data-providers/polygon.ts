@@ -145,7 +145,7 @@ export class PolygonProvider implements DataProvider {
     }
   }
 
-  async getHistoricalData(symbol: string, timeframe: '15m' | '1d'): Promise<HistoricalData[]> {
+  async getHistoricalData(symbol: string, timeframe: '1h' | '1d' | '1M' | '1Y'): Promise<HistoricalData[]> {
     try {
       if (!this.config.apiKey) {
         console.warn('Polygon.io API key not configured');
@@ -155,46 +155,30 @@ export class PolygonProvider implements DataProvider {
       // Calculate date range
       const now = new Date();
       let from: Date;
+      let timespan: string;
+      let multiplier: number;
       
-      if (timeframe === '15m') {
-        // For 15m data, pull from the last valid trading point (4pm close) backwards
-        const currentTimeET = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-        const currentDay = currentTimeET.getDay(); // 0 = Sunday, 6 = Saturday
-        const hourET = currentTimeET.getHours();
-        
-        // Find the last valid 4PM ET close (regular market close)
-        const lastValidClose = new Date(currentTimeET);
-        
-        if (currentDay === 0 || currentDay === 6) {
-          // Weekend - use Friday's 4PM ET close
-          lastValidClose.setDate(currentTimeET.getDate() - (currentDay === 0 ? 2 : 1)); // Go back to Friday
-          lastValidClose.setHours(16, 0, 0, 0); // 4PM ET
-        } else {
-          // Weekday - use today's 4PM ET (if past) or previous day's 4PM ET
-          if (hourET >= 16) {
-            // Past 4PM ET today
-            lastValidClose.setHours(16, 0, 0, 0); // 4PM ET today
-          } else {
-            // Before 4PM ET today - use previous trading day's 4PM ET
-            if (currentDay === 1) { // Monday
-              lastValidClose.setDate(currentTimeET.getDate() - 3); // Go back to Friday
-            } else {
-              lastValidClose.setDate(currentTimeET.getDate() - 1); // Previous day
-            }
-            lastValidClose.setHours(16, 0, 0, 0); // 4PM ET
-          }
-        }
-        
-        
-        // Pull 8 hours of 15m data backwards from the last valid close
-        from = new Date(lastValidClose.getTime() - 8 * 60 * 60 * 1000); // 8 hours before close
-      } else {
-        // For 1d data, use 30-day lookback
+      if (timeframe === '1h') {
+        // Last 1 hour, use 1m intervals for more granular data
+        from = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+        timespan = 'minute';
+        multiplier = 1;
+      } else if (timeframe === '1d') {
+        // Last 1 day, use 15m intervals
+        from = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+        timespan = 'minute';
+        multiplier = 15;
+      } else if (timeframe === '1M') {
+        // Last 1 month (30 days), use daily intervals
         from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        timespan = 'day';
+        multiplier = 1;
+      } else {
+        // Last 1 year (365 days), use daily intervals
+        from = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        timespan = 'day';
+        multiplier = 1;
       }
-      
-      const timespan = timeframe === '15m' ? 'minute' : 'day';
-      const multiplier = timeframe === '15m' ? 15 : 1;
       
       const response = await fetch(
         `${this.config.baseUrl}/v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${from.toISOString().split('T')[0]}/${now.toISOString().split('T')[0]}?adjusted=true&sort=asc&apikey=${this.config.apiKey}`

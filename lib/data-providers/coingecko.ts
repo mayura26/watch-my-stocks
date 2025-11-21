@@ -149,7 +149,7 @@ export class CoinGeckoProvider implements DataProvider {
     }
   }
 
-  async getHistoricalData(symbol: string, timeframe: '15m' | '1d', coinId?: string): Promise<HistoricalData[]> {
+  async getHistoricalData(symbol: string, timeframe: '1h' | '1d' | '1M' | '1Y', coinId?: string): Promise<HistoricalData[]> {
     try {
       // coinId should always be provided for crypto assets
       if (!coinId) {
@@ -158,7 +158,14 @@ export class CoinGeckoProvider implements DataProvider {
       }
 
       // Calculate date range based on timeframe
-      const days = timeframe === '15m' ? 1 : 30;
+      let days: number;
+      if (timeframe === '1h' || timeframe === '1d') {
+        days = 1;
+      } else if (timeframe === '1M') {
+        days = 30;
+      } else {
+        days = 365;
+      }
       
       // Use the OHLC endpoint which provides proper OHLC data
       // Correct SDK method: coingeckoClient.coins.ohlc.get(id, params)

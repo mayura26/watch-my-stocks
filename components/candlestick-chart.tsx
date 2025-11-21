@@ -2,37 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '@/lib/theme-provider';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  TimeScale,
-  Tooltip,
-  Legend,
-  ChartOptions,
-} from 'chart.js';
-import { CandlestickController, CandlestickElement } from 'chartjs-chart-financial';
-import 'chartjs-adapter-date-fns';
-
-// Define the financial data type
-interface FinancialData {
-  x: number;
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-}
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  TimeScale,
-  Tooltip,
-  Legend,
-  CandlestickController,
-  CandlestickElement
-);
+import { createChart, IChartApi, ISeriesApi, ColorType } from 'lightweight-charts';
 
 interface CandlestickChartProps {
   data: {
@@ -43,13 +13,14 @@ interface CandlestickChartProps {
     close: number;
     volume: number;
   }[];
-  timeframe: '15m' | '1d';
+  timeframe: '1h' | '1d' | '1M' | '1Y';
   height?: number;
 }
 
 export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const chartRef = useRef<ChartJS<'candlestick'> | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const { theme, resolvedTheme } = useTheme();
   
   // Get the actual theme (handles 'auto' case)
@@ -60,174 +31,153 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
     const isDark = currentTheme === 'dark';
     
     return {
-      // Grid and axis colors
-      gridColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-      tickColor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+      // Chart background
+      layoutBackground: isDark ? '#0a0a0a' : '#ffffff',
+      layoutText: isDark ? '#d1d5db' : '#1f2937',
       
-      // Tooltip colors
-      tooltipBg: isDark ? 'hsl(222.2, 84%, 4.9%)' : 'hsl(0, 0%, 100%)',
-      tooltipBorder: isDark ? 'hsl(217.2, 32.6%, 17.5%)' : 'hsl(214.3, 31.8%, 91.4%)',
-      tooltipText: isDark ? 'hsl(210, 40%, 98%)' : 'hsl(222.2, 84%, 4.9%)',
+      // Grid colors
+      gridColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
       
       // Candlestick colors
       bullish: {
-        fill: isDark ? '#10b981' : '#059669', // green-500 for dark, green-600 for light
-        border: isDark ? '#34d399' : '#047857', // green-400 for dark, green-700 for light
+        upColor: isDark ? '#10b981' : '#059669',
+        downColor: isDark ? '#ef4444' : '#dc2626',
+        borderUpColor: isDark ? '#34d399' : '#047857',
+        borderDownColor: isDark ? '#f87171' : '#b91c1c',
       },
-      bearish: {
-        fill: isDark ? '#ef4444' : '#dc2626', // red-500 for dark, red-600 for light
-        border: isDark ? '#f87171' : '#b91c1c', // red-400 for dark, red-700 for light
-      }
+      
+      // Crosshair
+      crosshairColor: isDark ? '#6b7280' : '#9ca3af',
     };
   }, [currentTheme]);
 
   useEffect(() => {
-    if (!canvasRef.current || !data || data.length === 0) return;
+    if (!chartContainerRef.current || !data || data.length === 0) return;
 
     // Destroy existing chart
     if (chartRef.current) {
-      chartRef.current.destroy();
+      chartRef.current.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     }
-
-    // Process data for Chart.js financial
-    const chartData: FinancialData[] = data.map(item => ({
-      x: item.timestamp,
-      o: item.open,
-      h: item.high,
-      l: item.low,
-      c: item.close,
-    }));
 
     const colors = getThemeColors();
 
-    const options: ChartOptions<'candlestick'> = {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        intersect: false,
-        mode: 'index',
+    // Get container width, ensuring we have a valid width
+    const containerWidth = chartContainerRef.current.clientWidth || chartContainerRef.current.offsetWidth || 800;
+
+    // Create chart
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: colors.layoutBackground },
+        textColor: colors.layoutText,
       },
-      plugins: {
-        legend: {
-          display: false,
+      grid: {
+        vertLines: { color: colors.gridColor },
+        horzLines: { color: colors.gridColor },
+      },
+      width: containerWidth,
+      height: height,
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        borderColor: colors.gridColor,
+      },
+      rightPriceScale: {
+        borderColor: colors.gridColor,
+      },
+      crosshair: {
+        mode: 0, // Normal crosshair
+        vertLine: {
+          color: colors.crosshairColor,
+          width: 1,
+          style: 0,
         },
-        tooltip: {
-          backgroundColor: colors.tooltipBg,
-          titleColor: colors.tooltipText,
-          bodyColor: colors.tooltipText,
-          borderColor: colors.tooltipBorder,
-          borderWidth: 1,
-          cornerRadius: 8,
-          displayColors: false,
-          callbacks: {
-            title: (context) => {
-              const dataPoint = context[0];
-              if (dataPoint && 'parsed' in dataPoint) {
-                const timestamp = (dataPoint.parsed as any).x;
-                const date = new Date(timestamp);
-                return timeframe === '15m' 
-                  ? date.toLocaleTimeString('en-US', { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      hour12: false 
-                    })
-                  : date.toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
-                    });
-              }
-              return '';
-            },
-            label: (context) => {
-              const dataPoint = context.parsed as any;
-              if (dataPoint && typeof dataPoint === 'object') {
-                const isGreen = dataPoint.c >= dataPoint.o;
-                return [
-                  `Open: $${dataPoint.o?.toFixed(2) || '0.00'}`,
-                  `High: $${dataPoint.h?.toFixed(2) || '0.00'}`,
-                  `Low: $${dataPoint.l?.toFixed(2) || '0.00'}`,
-                  `Close: $${dataPoint.c?.toFixed(2) || '0.00'} ${isGreen ? '↗' : '↘'}`,
-                ];
-              }
-              return [];
-            },
-          },
+        horzLine: {
+          color: colors.crosshairColor,
+          width: 1,
+          style: 0,
         },
       },
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: timeframe === '15m' ? 'minute' : 'week',
-            displayFormats: {
-              minute: 'HH:mm',
-              week: 'MMM dd',
-            },
-          },
-          // Show appropriate time range based on actual data
-          min: chartData.length > 0 ? new Date(Math.min(...chartData.map(d => d.x))).toISOString() : 
-            timeframe === '15m' ? new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() : 
-            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          max: chartData.length > 0 ? new Date(Math.max(...chartData.map(d => d.x))).toISOString() : undefined,
-          grid: {
-            color: colors.gridColor,
-          },
-          ticks: {
-            color: colors.tickColor,
-            maxTicksLimit: timeframe === '15m' ? 8 : 5, // Show weekly labels for 1D
-          },
-        },
-        y: {
-          grid: {
-            color: colors.gridColor,
-          },
-          ticks: {
-            color: colors.tickColor,
-            callback: function(value) {
-              return '$' + Number(value).toFixed(2);
-            },
-          },
-        },
+    });
+
+    // Create candlestick series
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: colors.bullish.upColor,
+      downColor: colors.bullish.downColor,
+      borderVisible: true,
+      wickUpColor: colors.bullish.borderUpColor,
+      wickDownColor: colors.bullish.borderDownColor,
+      borderUpColor: colors.bullish.borderUpColor,
+      borderDownColor: colors.bullish.borderDownColor,
+    });
+
+    // Convert data to TradingView format
+    // TradingView expects time as Unix timestamp in seconds
+    const chartData = data.map(item => ({
+      time: (item.timestamp / 1000) as number,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+    }));
+
+    // Set data
+    candlestickSeries.setData(chartData);
+
+    // Format price axis
+    candlestickSeries.applyOptions({
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
       },
+    });
+
+    // Format time axis based on timeframe
+    chart.timeScale().applyOptions({
+      timeVisible: true,
+      secondsVisible: timeframe === '1h',
+      // Ensure chart fits the data and fills available space
+      rightOffset: 0,
+      // Adjust bar spacing for longer timeframes to ensure data fills the chart
+      barSpacing: timeframe === '1M' || timeframe === '1Y' ? 6 : undefined,
+    });
+
+    // Fit content to ensure all data is visible and chart fills space
+    // Use requestAnimationFrame to ensure chart is fully rendered before fitting
+    requestAnimationFrame(() => {
+      if (chartRef.current) {
+        chartRef.current.timeScale().fitContent();
+      }
+    });
+
+    // Handle resize
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+        });
+        // Re-fit content after resize
+        chartRef.current.timeScale().fitContent();
+      }
     };
 
-    chartRef.current = new ChartJS(canvasRef.current, {
-      type: 'candlestick',
-      data: {
-        datasets: [
-          {
-            label: 'Price',
-            data: chartData,
-            borderColor: (ctx: any) => {
-              const data = ctx.parsed;
-              if (data.c >= data.o) {
-                return colors.bullish.border;
-              } else {
-                return colors.bearish.border;
-              }
-            },
-            backgroundColor: (ctx: any) => {
-              const data = ctx.parsed;
-              if (data.c >= data.o) {
-                return colors.bullish.fill;
-              } else {
-                return colors.bearish.fill;
-              }
-            },
-            borderWidth: 1,
-          },
-        ],
-      },
-      options,
-    });
+    window.addEventListener('resize', handleResize);
+
+    chartRef.current = chart;
+    seriesRef.current = candlestickSeries;
 
     // Cleanup function
     return () => {
+      window.removeEventListener('resize', handleResize);
       if (chartRef.current) {
-        chartRef.current.destroy();
+        chartRef.current.remove();
+        chartRef.current = null;
+        seriesRef.current = null;
       }
     };
-  }, [data, timeframe, currentTheme, getThemeColors]);
+  }, [data, timeframe, height, currentTheme, getThemeColors]);
 
   if (!data || data.length === 0) {
     return (
@@ -240,8 +190,8 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
   }
 
   return (
-    <div className="w-full" style={{ height }}>
-      <canvas ref={canvasRef} />
+    <div className="w-full h-full" style={{ height, minHeight: height }}>
+      <div ref={chartContainerRef} className="w-full h-full" style={{ width: '100%', height: '100%' }} />
     </div>
   );
 }
