@@ -4,9 +4,6 @@ This document tracks optional features and potential enhancements for the WatchM
 
 ## 🚀 **High Priority Features**
 
-### Charting & Visualization
-[ ] Add last price to show while we refresh the new data
-
 ### Portfolio Organization & UX
 - [ ] **Grouping System** - Tabbed view on main page to organize assets into groups (All, Stocks, Crypto, Futures)
 - [ ] **Day/Week Range Markers** - Dashboard markers showing current price position relative to day and week ranges

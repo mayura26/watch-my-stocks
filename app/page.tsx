@@ -7,7 +7,7 @@ import { AssetSearch } from '@/components/asset-search';
 import { AssetDetailDialog } from '@/components/asset-detail-dialog';
 import { PortfolioAsset } from '@/types/asset';
 import { QuoteData } from '@/lib/data-providers/types';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
 
@@ -26,15 +26,7 @@ export default function Home() {
   const [showAssetDialog, setShowAssetDialog] = useState(false);
   const hasLoadedPortfolioRef = useRef(false); // Track if we've ever loaded portfolio data
 
-  // Load portfolio on mount
-  useEffect(() => {
-    const typedSession = getTypedSession(session);
-    if (typedSession?.user?.id) {
-      loadPortfolio();
-    }
-  }, [session]);
-
-  const loadPortfolio = async (isRefresh = false) => {
+  const loadPortfolio = useCallback(async (isRefresh = false) => {
     // Only show loading skeleton on initial load, not on refresh
     if (isRefresh) {
       setIsRefreshing(true);
@@ -139,7 +131,15 @@ export default function Home() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [portfolio]);
+
+  // Load portfolio on mount
+  useEffect(() => {
+    const typedSession = getTypedSession(session);
+    if (typedSession?.user?.id) {
+      loadPortfolio();
+    }
+  }, [session, loadPortfolio]);
 
   const handleAddAsset = async (symbol: string, name: string, type: string, coinId?: string) => {
     try {
