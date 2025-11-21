@@ -4,6 +4,9 @@ This document tracks optional features and potential enhancements for the WatchM
 
 ## 🚀 **High Priority Features**
 
+### Charting & Visualization
+- [ ] **TradingView Lightweight Charts** - Replace Chart.js with TradingView's Lightweight Charts library for better performance, more professional appearance, and enhanced financial charting features (real-time updates, better mobile support, smoother interactions)
+
 ### Portfolio Organization & UX
 - [ ] **Grouping System** - Tabbed view on main page to organize assets into groups (All, Stocks, Crypto, Futures)
 - [ ] **Day/Week Range Markers** - Dashboard markers showing current price position relative to day and week ranges

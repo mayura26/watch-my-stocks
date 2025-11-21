@@ -444,10 +444,62 @@ async function getDailyOpenPrice(symbol: string): Promise<number | null> {
   }
 }
 
+// Helper function to get the highest threshold level that has been triggered for an alert
+async function getHighestTriggeredThresholdLevel(alertId: string, thresholdPercent: number, symbol: string): Promise<number> {
+  try {
+    // Check if the last trigger was today
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    const result = await client.execute({
+      sql: `
+        SELECT last_triggered, last_triggered_price
+        FROM alerts
+        WHERE id = ? AND last_triggered IS NOT NULL AND last_triggered_price IS NOT NULL
+      `,
+      args: [alertId]
+    });
+    
+    if (result.rows.length === 0) {
+      // No previous trigger, so highest level is 0
+      return 0;
+    }
+    
+    const lastTriggered = String(result.rows[0].last_triggered);
+    const lastTriggeredDate = lastTriggered.split('T')[0]; // Get date part
+    
+    // If last trigger was not today, reset to level 0 (new day, new tracking)
+    if (lastTriggeredDate !== today) {
+      return 0;
+    }
+    
+    const lastTriggeredPrice = Number(result.rows[0].last_triggered_price);
+    
+    // Get today's open price
+    const dailyOpenPrice = await getDailyOpenPrice(symbol);
+    if (dailyOpenPrice === null) {
+      return 0;
+    }
+    
+    // Calculate the percentage change when it was last triggered
+    const lastTriggeredPercentChange = Math.abs(((lastTriggeredPrice - dailyOpenPrice) / dailyOpenPrice) * 100);
+    
+    // Calculate which threshold level that represents
+    // Threshold level = floor(percentageChange / thresholdPercent)
+    // E.g., if threshold is 5% and price moved 12%, level = floor(12/5) = 2 (meaning 10% threshold)
+    const thresholdLevel = Math.floor(lastTriggeredPercentChange / Math.abs(thresholdPercent));
+    
+    return thresholdLevel;
+  } catch (error) {
+    console.error(`Error getting highest triggered threshold level for alert ${alertId}:`, error);
+    return 0;
+  }
+}
+
 // Helper function to check percentage move alert conditions
 async function checkPercentageMoveAlert(alert: any, currentPrice: number, previousPrice: number | null): Promise<boolean> {
   const symbol = String(alert.symbol);
   const thresholdPercent = Number(alert.threshold_value);
+  const alertId = String(alert.id);
   
   // Get today's open price
   const dailyOpenPrice = await getDailyOpenPrice(symbol);
@@ -458,28 +510,60 @@ async function checkPercentageMoveAlert(alert: any, currentPrice: number, previo
   
   // Calculate current percentage change from open
   const currentPercentChange = ((currentPrice - dailyOpenPrice) / dailyOpenPrice) * 100;
+  const absCurrentPercentChange = Math.abs(currentPercentChange);
+  
+  // Get the highest threshold level that has been triggered before (we need this even if previousPrice is null)
+  const highestTriggeredLevel = await getHighestTriggeredThresholdLevel(alertId, thresholdPercent, symbol);
   
   // We need a previous percentage to detect a cross
   if (previousPrice === null) {
-    console.log(`No previous price available for ${symbol}, skipping percentage cross-detection`);
+    // For first-time alerts (no previous price history), trigger if we cross the base threshold
+    // But only if we haven't already triggered level 1 today
+    const absThreshold = Math.abs(thresholdPercent);
+    const currentThresholdLevel = Math.floor(absCurrentPercentChange / absThreshold);
+    
+    // First trigger: must cross to at least level 1, and we haven't triggered it yet today
+    if (currentThresholdLevel >= 1 && currentThresholdLevel > highestTriggeredLevel) {
+      const actualThreshold = currentThresholdLevel * absThreshold;
+      console.log(`Percentage alert first trigger for ${symbol}: ${currentPercentChange.toFixed(2)}% (crossed ±${actualThreshold.toFixed(2)}%, level ${currentThresholdLevel})`);
+      return true;
+    }
     return false;
   }
   
   // Calculate previous percentage change from open
   const previousPercentChange = ((previousPrice - dailyOpenPrice) / dailyOpenPrice) * 100;
-  
-  // For percentage alerts, we need to check if we're crossing the threshold in EITHER direction
-  // Trigger when crossing from below threshold to above threshold OR from above threshold to below threshold
-  // But we need to use the ABSOLUTE value of the threshold for both directions
+  const absPreviousPercentChange = Math.abs(previousPercentChange);
   
   const absThreshold = Math.abs(thresholdPercent);
   
-  // Check if we crossed the threshold in either direction
-  const crossedAbove = Math.abs(previousPercentChange) <= absThreshold && Math.abs(currentPercentChange) > absThreshold;
-  const crossedBelow = Math.abs(previousPercentChange) > absThreshold && Math.abs(currentPercentChange) <= absThreshold;
+  // Calculate threshold levels
+  // Threshold level represents which multiple of the base threshold we're at
+  // E.g., if threshold is 5%:
+  //   - Level 0: 0-4.99% (below threshold)
+  //   - Level 1: 5-9.99% (first threshold crossed = 5%)
+  //   - Level 2: 10-14.99% (second threshold crossed = 10%)
+  //   - Level 3: 15-19.99% (third threshold crossed = 15%)
+  const previousThresholdLevel = Math.floor(absPreviousPercentChange / absThreshold);
+  const currentThresholdLevel = Math.floor(absCurrentPercentChange / absThreshold);
   
-  if (crossedAbove || crossedBelow) {
-    console.log(`Percentage alert crossed for ${symbol}: ${previousPercentChange.toFixed(2)}% → ${currentPercentChange.toFixed(2)}% (threshold: ±${absThreshold}%)`);
+  // Check if we've crossed a new threshold level that hasn't been triggered yet
+  // Requirements:
+  // 1. First time: trigger when crossing to level 1 (the base threshold of 5%)
+  // 2. After that: only trigger when crossing to a level higher than what we've already triggered
+  // 3. Only trigger when moving UP to a new level (not when moving down or staying the same)
+  
+  // Case 1: First trigger - must cross to at least level 1
+  if (highestTriggeredLevel === 0 && currentThresholdLevel >= 1 && currentThresholdLevel > previousThresholdLevel) {
+    const actualThreshold = currentThresholdLevel * absThreshold;
+    console.log(`Percentage alert first trigger for ${symbol}: ${previousPercentChange.toFixed(2)}% → ${currentPercentChange.toFixed(2)}% (crossed ±${actualThreshold.toFixed(2)}%, level ${currentThresholdLevel})`);
+    return true;
+  }
+  
+  // Case 2: Subsequent triggers - only trigger when crossing to a level higher than previously triggered
+  if (highestTriggeredLevel > 0 && currentThresholdLevel > highestTriggeredLevel && currentThresholdLevel > previousThresholdLevel) {
+    const actualThreshold = currentThresholdLevel * absThreshold;
+    console.log(`Percentage alert crossed new threshold for ${symbol}: ${previousPercentChange.toFixed(2)}% → ${currentPercentChange.toFixed(2)}% (crossed ±${actualThreshold.toFixed(2)}%, level ${currentThresholdLevel}, previous highest: ${highestTriggeredLevel})`);
     return true;
   }
   
