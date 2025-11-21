@@ -11,22 +11,27 @@ interface AssetCardProps {
 }
 
 export function AssetCard({ asset, onClick, isRefreshing = false }: AssetCardProps) {
-  const isPositive = asset.change >= 0;
+  // Safely handle undefined values with defaults
+  const currentPrice = asset.currentPrice ?? 0;
+  const change = asset.change ?? 0;
+  const changePercent = asset.changePercent ?? 0;
+  
+  const isPositive = change >= 0;
   const ChangeIcon = isPositive ? TrendingUp : TrendingDown;
-  const prevPriceRef = useRef(asset.currentPrice);
-  const prevChangeRef = useRef(asset.changePercent);
+  const prevPriceRef = useRef(currentPrice);
+  const prevChangeRef = useRef(changePercent);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Detect when price changes and trigger update animation
   useEffect(() => {
-    if (prevPriceRef.current !== asset.currentPrice || prevChangeRef.current !== asset.changePercent) {
+    if (prevPriceRef.current !== currentPrice || prevChangeRef.current !== changePercent) {
       setIsUpdating(true);
       const timer = setTimeout(() => setIsUpdating(false), 600);
-      prevPriceRef.current = asset.currentPrice;
-      prevChangeRef.current = asset.changePercent;
+      prevPriceRef.current = currentPrice;
+      prevChangeRef.current = changePercent;
       return () => clearTimeout(timer);
     }
-  }, [asset.currentPrice, asset.changePercent]);
+  }, [currentPrice, changePercent]);
 
   const getAssetTypeColor = (type: string) => {
     switch (type) {
@@ -62,19 +67,19 @@ export function AssetCard({ asset, onClick, isRefreshing = false }: AssetCardPro
               className={`text-sm font-semibold leading-tight transition-all duration-500 ease-out ${
                 isUpdating ? 'scale-110 text-primary' : ''
               }`}
-              key={`price-${asset.currentPrice}`}
+              key={`price-${currentPrice}`}
             >
-              ${asset.currentPrice.toFixed(2)}
+              ${currentPrice.toFixed(2)}
             </div>
             <div 
               className={`flex items-center gap-1 text-xs transition-all duration-500 ease-out ${
                 isPositive ? 'text-green-600' : 'text-red-600'
               } ${isUpdating ? 'scale-105' : ''}`}
-              key={`change-${asset.changePercent}`}
+              key={`change-${changePercent}`}
             >
               <ChangeIcon className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">
-                {isPositive ? '+' : ''}{asset.changePercent.toFixed(2)}%
+                {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
               </span>
             </div>
           </div>
