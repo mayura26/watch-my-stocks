@@ -7,7 +7,7 @@ import { AssetSearch } from '@/components/asset-search';
 import { AssetDetailDialog } from '@/components/asset-detail-dialog';
 import { PortfolioAsset } from '@/types/asset';
 import { QuoteData } from '@/lib/data-providers/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, RefreshCw } from 'lucide-react';
 
@@ -21,8 +21,10 @@ export default function Home() {
   const [selectedAsset, setSelectedAsset] = useState<PortfolioAsset | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioAsset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showAssetDialog, setShowAssetDialog] = useState(false);
+  const hasLoadedPortfolioRef = useRef(false); // Track if we've ever loaded portfolio data
 
   // Load portfolio on mount
   useEffect(() => {
@@ -32,8 +34,16 @@ export default function Home() {
     }
   }, [session]);
 
-  const loadPortfolio = async () => {
-    setIsLoading(true);
+  const loadPortfolio = async (isRefresh = false) => {
+    // Only show loading skeleton on initial load, not on refresh
+    if (isRefresh) {
+      setIsRefreshing(true);
+      setIsLoading(false); // Ensure loading is false during refresh
+    } else {
+      setIsLoading(true);
+      setIsRefreshing(false); // Ensure refreshing is false during initial load
+    }
+    
     try {
       const response = await fetch('/api/portfolio');
       const data = await response.json();
@@ -44,29 +54,81 @@ export default function Home() {
         // Fetch real-time quotes for all portfolio assets
         const symbols = portfolioData.map((asset: PortfolioAsset) => asset.symbol);
         if (symbols.length > 0) {
-          const quotesResponse = await fetch(`/api/assets/quotes?symbols=${symbols.join(',')}`);
-          if (quotesResponse.ok) {
+          try {
+            const quotesResponse = await fetch(`/api/assets/quotes?symbols=${symbols.join(',')}`);
             const quotesData = await quotesResponse.json();
-            const quotesMap = new Map<string, QuoteData>(quotesData.quotes.map((q: QuoteData) => [q.symbol, q]));
             
-            // Update portfolio with real-time data
+            // Always process quotes, even if some failed (partial results)
+            // This allows us to update what we can and keep old data for the rest
+            const quotesMap = new Map<string, QuoteData>(
+              (quotesData.quotes || []).map((q: QuoteData) => [q.symbol, q])
+            );
+            
+            // Create a map of existing portfolio by symbol for quick lookup
+            const existingPortfolioMap = new Map<string, PortfolioAsset>(
+              portfolio.map((asset: PortfolioAsset) => [asset.symbol, asset])
+            );
+            
+            // Update portfolio with real-time data, preserving existing prices for missing quotes
             const updatedPortfolio = portfolioData.map((asset: PortfolioAsset) => {
               const quote = quotesMap.get(asset.symbol);
-              return {
-                ...asset,
-                currentPrice: quote?.currentPrice ?? asset.currentPrice,
-                change: quote?.change ?? 0,
-                changePercent: quote?.changePercent ?? 0,
-                lastUpdated: quote?.lastUpdated ?? asset.lastUpdated
-              };
+              const existingAsset = existingPortfolioMap.get(asset.symbol);
+              
+              // If we got a new quote, use it
+              if (quote) {
+                return {
+                  ...asset,
+                  currentPrice: quote.currentPrice,
+                  change: quote.change,
+                  changePercent: quote.changePercent,
+                  lastUpdated: quote.lastUpdated
+                };
+              }
+              
+              // If quote fetch failed, preserve existing state (if refreshing) or use database value
+              if (isRefresh && existingAsset) {
+                // During refresh, keep the existing live prices
+                return {
+                  ...asset,
+                  currentPrice: existingAsset.currentPrice,
+                  change: existingAsset.change,
+                  changePercent: existingAsset.changePercent,
+                  lastUpdated: existingAsset.lastUpdated
+                };
+              }
+              
+              // On initial load, use database value or 0
+              return asset;
             });
             
+            // Use a small delay to allow CSS transitions to work smoothly
+            if (isRefresh) {
+              // Small delay to ensure smooth transition
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            
             setPortfolio(updatedPortfolio);
-          } else {
-            setPortfolio(portfolioData);
+            hasLoadedPortfolioRef.current = true; // Mark that we've loaded portfolio
+            
+            // Log warning if we got partial results (e.g., rate limits)
+            if (quotesData.partial && quotesData.quotes.length < symbols.length) {
+              console.warn(`Only received ${quotesData.quotes.length} of ${symbols.length} quotes. Some may be rate-limited.`);
+            }
+          } catch (error) {
+            console.error('Error fetching quotes:', error);
+            // On error during refresh, keep existing portfolio data visible
+            // On initial load, use database data (may have stale prices)
+            if (!isRefresh) {
+              setPortfolio(portfolioData);
+            }
+            // If refreshing, don't update portfolio - keep existing state with live prices
           }
         } else {
-          setPortfolio(portfolioData);
+            // Only set portfolio if not refreshing (to avoid clearing during refresh)
+          if (!isRefresh) {
+            setPortfolio(portfolioData);
+            hasLoadedPortfolioRef.current = true; // Mark that we've loaded portfolio
+          }
         }
       } else {
         console.error('Failed to load portfolio:', data.error);
@@ -75,6 +137,7 @@ export default function Home() {
       console.error('Portfolio load error:', error);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -181,11 +244,11 @@ export default function Home() {
                 <Button 
                   variant="outline"
                   size="sm"
-                  onClick={loadPortfolio}
-                  disabled={isLoading}
+                  onClick={() => loadPortfolio(true)}
+                  disabled={isLoading || isRefreshing}
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
                 <Button 
@@ -204,9 +267,11 @@ export default function Home() {
               </div>
             )}
 
-            {isLoading ? (
+            {/* Only show skeletons on initial load when we have no data and are not refreshing */}
+            {/* Never show skeletons if we've ever loaded portfolio or are currently refreshing */}
+            {!hasLoadedPortfolioRef.current && !isRefreshing && isLoading && portfolio.length === 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array.from({ length: portfolio.length || 6 }).map((_, i) => (
+                {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="h-32 bg-muted rounded animate-pulse"></div>
                 ))}
               </div>
@@ -225,6 +290,7 @@ export default function Home() {
                             type: asset.type,
                             lastUpdated: asset.lastUpdated
                           }}
+                          isRefreshing={isRefreshing}
                           onClick={() => {
                             setSelectedAsset(asset);
                             setShowAssetDialog(true);

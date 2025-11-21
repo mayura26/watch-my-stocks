@@ -5,8 +5,6 @@ This document tracks optional features and potential enhancements for the WatchM
 ## 🚀 **High Priority Features**
 
 ### Charting & Visualization
-- [ ] **TradingView Lightweight Charts** - Replace Chart.js with TradingView's Lightweight Charts library for better performance, more professional appearance, and enhanced financial charting features (real-time updates, better mobile support, smoother interactions)
-
 [ ] Add last price to show while we refresh the new data
 
 ### Portfolio Organization & UX

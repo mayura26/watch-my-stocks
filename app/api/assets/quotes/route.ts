@@ -23,12 +23,19 @@ export async function GET(request: NextRequest) {
       ...quote
     }));
     
-    return NextResponse.json({ quotes });
+    // Return partial results even if some quotes failed
+    // This allows the frontend to update what it can and keep old data for the rest
+    return NextResponse.json({ 
+      quotes,
+      partial: quotes.length < symbols.length // Indicate if we got partial results
+    });
   } catch (error) {
     console.error('Multiple quotes error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get quotes' },
-      { status: 500 }
-    );
+    // Even on error, return empty array so frontend can keep old data
+    return NextResponse.json({ 
+      quotes: [],
+      error: 'Some quotes failed to load',
+      partial: true
+    }, { status: 200 }); // Return 200 so frontend can still use old data
   }
 }

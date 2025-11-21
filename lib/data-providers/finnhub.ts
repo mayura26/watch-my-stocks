@@ -93,6 +93,11 @@ export class FinnhubProvider implements DataProvider {
       );
 
       if (!response.ok) {
+        // Handle rate limit errors gracefully
+        if (response.status === 429) {
+          console.warn(`Finnhub rate limit reached for ${symbol}. Please wait before retrying.`);
+          return null; // Return null instead of throwing to allow partial updates
+        }
         throw new Error(`Finnhub quote failed: ${response.status}`);
       }
 
