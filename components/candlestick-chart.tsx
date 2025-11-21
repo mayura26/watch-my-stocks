@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '@/lib/theme-provider';
-import { createChart, IChartApi, ISeriesApi, ColorType } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, ColorType, Time } from 'lightweight-charts';
 
 interface CandlestickChartProps {
   data: {
@@ -115,7 +115,7 @@ export function CandlestickChart({ data, timeframe, height = 300 }: CandlestickC
     // Convert data to TradingView format
     // TradingView expects time as Unix timestamp in seconds
     const chartData = data.map(item => ({
-      time: (item.timestamp / 1000) as number,
+      time: (item.timestamp / 1000) as Time,
       open: item.open,
       high: item.high,
       low: item.low,

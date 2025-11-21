@@ -167,7 +167,7 @@ export class FinnhubProvider implements DataProvider {
       // This provides real OHLC data for stocks without requiring a Finnhub subscription
       const now = new Date();
       let period1: Date;
-      let period2: Date = now;
+      const period2: Date = now;
       let interval: string;
 
       if (timeframe === '1h') {

@@ -238,7 +238,7 @@ export class YahooFinanceProvider implements DataProvider {
       // Use yahoo-finance2 for real historical data
       const now = new Date();
       let period1: Date;
-      let period2: Date = now;
+      const period2: Date = now;
       let interval: string;
 
       if (timeframe === '1h') {
