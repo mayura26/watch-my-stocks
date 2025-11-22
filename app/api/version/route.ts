@@ -10,7 +10,7 @@ export async function GET() {
     try {
       const versionContent = readFileSync(VERSION_FILE, 'utf-8').trim();
       version = versionContent || '1';
-    } catch (error) {
+    } catch {
       // File doesn't exist, return default
       console.warn('VERSION file not found, returning default version 1');
     }
