@@ -25,6 +25,12 @@ export default function Home() {
   const [showSearch, setShowSearch] = useState(false);
   const [showAssetDialog, setShowAssetDialog] = useState(false);
   const hasLoadedPortfolioRef = useRef(false); // Track if we've ever loaded portfolio data
+  const portfolioRef = useRef<PortfolioAsset[]>([]); // Ref to store current portfolio for use in callbacks
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    portfolioRef.current = portfolio;
+  }, [portfolio]);
 
   const loadPortfolio = useCallback(async (isRefresh = false) => {
     // Only show loading skeleton on initial load, not on refresh
@@ -57,8 +63,9 @@ export default function Home() {
             );
             
             // Create a map of existing portfolio by symbol for quick lookup
+            // Use ref instead of state to avoid dependency issues
             const existingPortfolioMap = new Map<string, PortfolioAsset>(
-              portfolio.map((asset: PortfolioAsset) => [asset.symbol, asset])
+              portfolioRef.current.map((asset: PortfolioAsset) => [asset.symbol, asset])
             );
             
             // Update portfolio with real-time data, preserving existing prices for missing quotes
@@ -131,7 +138,7 @@ export default function Home() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [portfolio]);
+  }, []); // Remove portfolio dependency to prevent infinite loop
 
   // Load portfolio on mount
   useEffect(() => {
@@ -139,7 +146,8 @@ export default function Home() {
     if (typedSession?.user?.id) {
       loadPortfolio();
     }
-  }, [session, loadPortfolio]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]); // loadPortfolio is stable (no dependencies), so we don't need to include it
 
   const handleAddAsset = async (symbol: string, name: string, type: string, coinId?: string) => {
     try {
