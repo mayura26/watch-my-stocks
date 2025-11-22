@@ -19,7 +19,8 @@ import {
   Save, 
   AlertTriangle,
   Download,
-  RefreshCw
+  RefreshCw,
+  RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationPermission } from '@/components/notification-permission';
@@ -53,6 +54,7 @@ export default function SettingsPage() {
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isForceUpdating, setIsForceUpdating] = useState(false);
 
   // Fetch fresh user data from database
   const fetchUserSettings = useCallback(async () => {
@@ -226,6 +228,60 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error deleting account:', error);
       toast.error('Failed to delete account');
+    }
+  };
+
+  const handleForceUpdate = async () => {
+    if (!('serviceWorker' in navigator)) {
+      toast.error('Service workers are not supported in this browser');
+      return;
+    }
+
+    setIsForceUpdating(true);
+    try {
+      // Get all service worker registrations
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      
+      // Unregister all service workers
+      for (const registration of registrations) {
+        await registration.unregister();
+        console.log('Service worker unregistered');
+      }
+
+      // Clear all caches
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(cacheName => {
+          console.log('Deleting cache:', cacheName);
+          return caches.delete(cacheName);
+        })
+      );
+
+      toast.success('App cache cleared. Reloading...');
+      
+      // Small delay to show the toast, then reload
+      setTimeout(() => {
+        // Force a hard reload to bypass cache
+        // Try multiple methods to ensure cache bypass
+        if ('serviceWorker' in navigator) {
+          // Register a new service worker to trigger update
+          navigator.serviceWorker.register('/sw.js?t=' + Date.now())
+            .then(() => {
+              // Reload after registration
+              window.location.reload();
+            })
+            .catch(() => {
+              // Fallback to regular reload
+              window.location.reload();
+            });
+        } else {
+          window.location.reload();
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error forcing update:', error);
+      toast.error('Failed to force update. Please try refreshing manually.');
+      setIsForceUpdating(false);
     }
   };
 
@@ -501,6 +557,38 @@ export default function SettingsPage() {
                 <Button variant="outline" onClick={handleExportData}>
                   <Download className="w-4 h-4 mr-2" />
                   Export
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* App Updates */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5" />
+                App Updates
+              </CardTitle>
+              <CardDescription>
+                Force update the app to get the latest version
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Force Update</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Clear cache and reload to get the newest app version. Use this if the app seems outdated.
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleForceUpdate}
+                  disabled={isForceUpdating}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className={`w-4 h-4 ${isForceUpdating ? 'animate-spin' : ''}`} />
+                  {isForceUpdating ? 'Updating...' : 'Force Update'}
                 </Button>
               </div>
             </CardContent>
