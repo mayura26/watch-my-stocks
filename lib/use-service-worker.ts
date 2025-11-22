@@ -2,6 +2,36 @@
 
 import { useEffect } from 'react';
 
+// Check if app version matches service worker version
+async function checkVersion() {
+  try {
+    const response = await fetch('/api/version');
+    if (response.ok) {
+      const data = await response.json();
+      const currentVersion = data.version || '1';
+      
+      // Check if version is stored in service worker
+      const registration = await navigator.serviceWorker.ready;
+      if (registration) {
+        // Get cache names to determine service worker version
+        const cacheNames = await caches.keys();
+        const versionCache = cacheNames.find(name => name.startsWith('watchmystocks-v'));
+        
+        if (versionCache) {
+          const swVersion = versionCache.replace('watchmystocks-v', '');
+          if (swVersion !== currentVersion) {
+            console.log(`Version mismatch: SW has v${swVersion}, app has v${currentVersion}`);
+            return { mismatch: true, swVersion, currentVersion };
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error checking version:', error);
+  }
+  return { mismatch: false };
+}
+
 export function useServiceWorker() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -16,6 +46,12 @@ export function useServiceWorker() {
 
           console.log('Service Worker registered successfully:', registration);
 
+          // Check version after registration
+          const versionCheck = await checkVersion();
+          if (versionCheck.mismatch) {
+            console.log('Version mismatch detected, waiting for service worker update...');
+          }
+
           // Handle updates
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
@@ -23,12 +59,16 @@ export function useServiceWorker() {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // New content is available, notify user
-                  console.log('New content is available, please refresh.');
+                  console.log('New version available, please refresh.');
                   
-                  // You could show a notification here
-                  if (confirm('New version available! Refresh to update?')) {
-                    window.location.reload();
-                  }
+                  // Check version again to confirm mismatch
+                  checkVersion().then((versionCheck) => {
+                    if (versionCheck.mismatch) {
+                      if (confirm(`New version available (v${versionCheck.currentVersion})! Refresh to update?`)) {
+                        window.location.reload();
+                      }
+                    }
+                  });
                 }
               });
             }
@@ -50,7 +90,12 @@ export function useServiceWorker() {
       // Handle controller change (app was updated)
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         console.log('Service worker controller changed');
-        window.location.reload();
+        // Check version before reloading
+        checkVersion().then((versionCheck) => {
+          if (versionCheck.mismatch) {
+            window.location.reload();
+          }
+        });
       });
     }
   }, []);

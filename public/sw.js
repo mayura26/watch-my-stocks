@@ -1,4 +1,19 @@
-const CACHE_NAME = 'watchmystocks-v1';
+// Get version and cache name dynamically
+async function getCacheName() {
+  try {
+    const response = await fetch('/version.json');
+    if (response.ok) {
+      const data = await response.json();
+      const version = data.version || '1';
+      return `watchmystocks-v${version}`;
+    }
+  } catch (error) {
+    console.log('Service Worker: Failed to fetch version, using default', error);
+  }
+  // Fallback to default if version fetch fails
+  return 'watchmystocks-v1';
+}
+
 const STATIC_CACHE_URLS = [
   '/',
   '/portfolio',
@@ -15,14 +30,18 @@ const STATIC_CACHE_URLS = [
 self.addEventListener('install', (event) => {
   console.log('Service Worker: Installing...');
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Service Worker: Caching static assets');
-        return cache.addAll(STATIC_CACHE_URLS);
-      })
-      .then(() => {
-        console.log('Service Worker: Installation complete');
-        return self.skipWaiting();
+    getCacheName()
+      .then((CACHE_NAME) => {
+        console.log('Service Worker: Using cache name', CACHE_NAME);
+        return caches.open(CACHE_NAME)
+          .then((cache) => {
+            console.log('Service Worker: Caching static assets');
+            return cache.addAll(STATIC_CACHE_URLS);
+          })
+          .then(() => {
+            console.log('Service Worker: Installation complete');
+            return self.skipWaiting();
+          });
       })
       .then(() => {
         // Set up push notifications after installation
@@ -45,19 +64,27 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('Service Worker: Activating...');
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              console.log('Service Worker: Deleting old cache', cacheName);
-              return caches.delete(cacheName);
-            }
+    getCacheName()
+      .then((CACHE_NAME) => {
+        return caches.keys()
+          .then((cacheNames) => {
+            return Promise.all(
+              cacheNames.map((cacheName) => {
+                // Delete all caches that don't match the current version
+                if (cacheName !== CACHE_NAME && cacheName.startsWith('watchmystocks-v')) {
+                  console.log('Service Worker: Deleting old cache', cacheName);
+                  return caches.delete(cacheName);
+                }
+              })
+            );
           })
-        );
+          .then(() => {
+            console.log('Service Worker: Activation complete');
+            return self.clients.claim();
+          });
       })
-      .then(() => {
-        console.log('Service Worker: Activation complete');
+      .catch((error) => {
+        console.error('Service Worker: Activation failed', error);
         return self.clients.claim();
       })
   );
@@ -89,69 +116,77 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then((cachedResponse) => {
-        if (cachedResponse) {
-          console.log('Service Worker: Serving from cache', event.request.url);
-          return cachedResponse;
-        }
-
-        // If not in cache, fetch from network
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+    getCacheName()
+      .then((CACHE_NAME) => {
+        return caches.match(event.request)
+          .then((cachedResponse) => {
+            if (cachedResponse) {
+              console.log('Service Worker: Serving from cache', event.request.url);
+              return cachedResponse;
             }
 
-            // Skip caching for unsupported schemes
-            if (event.request.url.startsWith('chrome-extension://') || 
-                event.request.url.startsWith('moz-extension://') ||
-                event.request.url.startsWith('safari-extension://') ||
-                event.request.url.startsWith('ms-browser-extension://') ||
-                event.request.url.startsWith('data:') ||
-                event.request.url.startsWith('blob:')) {
-              return response;
-            }
+            // If not in cache, fetch from network
+            return fetch(event.request)
+              .then((response) => {
+                // Don't cache non-successful responses
+                if (!response || response.status !== 200 || response.type !== 'basic') {
+                  return response;
+                }
 
-            // Clone the response
-            const responseToCache = response.clone();
-
-            // Cache the response for future use
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                // Double-check URL before caching
+                // Skip caching for unsupported schemes
                 if (event.request.url.startsWith('chrome-extension://') || 
                     event.request.url.startsWith('moz-extension://') ||
                     event.request.url.startsWith('safari-extension://') ||
                     event.request.url.startsWith('ms-browser-extension://') ||
                     event.request.url.startsWith('data:') ||
                     event.request.url.startsWith('blob:')) {
-                  console.log('Service Worker: Skipping cache for unsupported URL:', event.request.url);
-                  return;
+                  return response;
                 }
-                
-                cache.put(event.request, responseToCache)
+
+                // Clone the response
+                const responseToCache = response.clone();
+
+                // Cache the response for future use
+                caches.open(CACHE_NAME)
+                  .then((cache) => {
+                    // Double-check URL before caching
+                    if (event.request.url.startsWith('chrome-extension://') || 
+                        event.request.url.startsWith('moz-extension://') ||
+                        event.request.url.startsWith('safari-extension://') ||
+                        event.request.url.startsWith('ms-browser-extension://') ||
+                        event.request.url.startsWith('data:') ||
+                        event.request.url.startsWith('blob:')) {
+                      console.log('Service Worker: Skipping cache for unsupported URL:', event.request.url);
+                      return;
+                    }
+                    
+                    cache.put(event.request, responseToCache)
+                      .catch((error) => {
+                        console.log('Service Worker: Failed to cache specific response:', error);
+                      });
+                  })
                   .catch((error) => {
-                    console.log('Service Worker: Failed to cache specific response:', error);
+                    console.log('Service Worker: Failed to open cache:', error);
                   });
+
+                return response;
               })
               .catch((error) => {
-                console.log('Service Worker: Failed to open cache:', error);
+                console.log('Service Worker: Network request failed', error);
+                
+                // Return offline page for navigation requests
+                if (event.request.destination === 'document') {
+                  return caches.match('/');
+                }
+                
+                throw error;
               });
-
-            return response;
-          })
-          .catch((error) => {
-            console.log('Service Worker: Network request failed', error);
-            
-            // Return offline page for navigation requests
-            if (event.request.destination === 'document') {
-              return caches.match('/');
-            }
-            
-            throw error;
           });
+      })
+      .catch((error) => {
+        console.error('Service Worker: Failed to get cache name', error);
+        // Fallback to network request if cache name fetch fails
+        return fetch(event.request);
       })
   );
 });

@@ -8,10 +8,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { NotificationBell } from '@/components/notification-bell';
+import { VersionIndicator } from '@/components/version-indicator';
 import { Home, Bell, BarChart3, Settings, User, MessageSquare } from 'lucide-react';
 
 export function Navigation() {
@@ -132,6 +134,8 @@ export function Navigation() {
                 <DropdownMenuItem onClick={() => signOut()}>
                   Logout
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <VersionIndicator />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
