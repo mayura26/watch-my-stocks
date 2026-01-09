@@ -10,7 +10,7 @@ try {
   try {
     const versionContent = readFileSync(VERSION_FILE, 'utf-8').trim();
     currentVersion = parseInt(versionContent, 10) || 1;
-  } catch (error) {
+  } catch {
     // File doesn't exist, start at 1
     console.log('VERSION file not found, starting at 1');
   }
